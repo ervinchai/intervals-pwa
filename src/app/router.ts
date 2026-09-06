@@ -43,20 +43,14 @@ export function useRouter(): RouterValue {
 }
 
 /**
- * Parses the raw string HA puts in `input_text.active_screen`.
- * Accepts "today", "meal-plan", "recipe:ragu-bianco".
+ * The one place a screen name + optional param becomes a `Screen`. Every entry
+ * point — HA's `input_text.active_screen`, web deep links, scanned QR codes —
+ * funnels through here, so the vocabulary of routable screens is defined once.
  *
- * Returns null for anything unrecognised — a typo in an HA automation should
- * leave the current screen alone, not blank the display.
+ * Returns null for anything unrecognised — a typo in an automation or a stray
+ * QR code should leave the current screen alone, not blank the display.
  */
-export function parseScreenString(raw: string): Screen | null {
-  const value = raw.trim()
-  if (!value) return null
-
-  const separator = value.indexOf(':')
-  const name = separator === -1 ? value : value.slice(0, separator)
-  const param = separator === -1 ? '' : value.slice(separator + 1)
-
+function screenFromParts(name: string, param: string): Screen | null {
   switch (name) {
     case 'today':
       return { name: 'today' }
@@ -73,6 +67,56 @@ export function parseScreenString(raw: string): Screen | null {
     default:
       return null
   }
+}
+
+/**
+ * Parses the raw string HA puts in `input_text.active_screen`.
+ * Accepts "today", "meal-plan", "recipe:ragu-bianco".
+ */
+export function parseScreenString(raw: string): Screen | null {
+  const value = raw.trim()
+  if (!value) return null
+
+  const separator = value.indexOf(':')
+  const name = separator === -1 ? value : value.slice(0, separator)
+  const param = separator === -1 ? '' : value.slice(separator + 1)
+  return screenFromParts(name, param)
+}
+
+/**
+ * Parses the canonical Intervals QR/deep-link format: `intervals://<screen>` or
+ * `intervals://<screen>/<param>`, e.g. `intervals://recipe/ragu-bianco`.
+ *
+ * The scheme host is the screen name and the first path segment is the param,
+ * so the same routable vocabulary as everywhere else applies. Returns null for
+ * any other scheme or an unrecognised screen.
+ *
+ * Parsing is deliberately local: scan → route must be instant and work offline
+ * on the docked iPad. If a scheme ever needs a *dynamic*, backend-resolved
+ * target (e.g. `intervals://recipe/current` meaning "whatever's cooking now"),
+ * route just that scheme through Windmill here rather than moving all parsing
+ * server-side — the static schemes should stay local.
+ */
+export function parseIntervalsUri(raw: string): Screen | null {
+  let url: URL
+  try {
+    url = new URL(raw.trim())
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'intervals:') return null
+
+  const name = url.hostname
+  // Take the first path segment as the param; decodeURIComponent restores any
+  // characters the URL parser percent-escaped (e.g. accents in a slug).
+  const rawParam = url.pathname.replace(/^\/+/, '').split('/')[0] ?? ''
+  let param = rawParam
+  try {
+    param = decodeURIComponent(rawParam)
+  } catch {
+    // Malformed escape — fall back to the raw segment rather than throwing.
+  }
+  return screenFromParts(name, param)
 }
 
 /**
@@ -95,11 +139,15 @@ export function screenFromUrl(url: string | URL): Screen | null {
 }
 
 /**
- * Resolves a raw QR payload decoded by the in-app scanner. A code may carry
- * either a full deep-link URL (`https://intervals/?s=recipe:ragu-bianco`) or a
- * bare grammar string (`recipe:ragu-bianco`), so we try the URL form first and
- * fall back to parsing the payload directly.
+ * Resolves a raw QR payload decoded by the in-app scanner. The canonical format
+ * is the `intervals://<screen>/<param>` URI; we fall back to the older `?s=`
+ * web deep link and the bare `recipe:ragu-bianco` grammar so existing codes and
+ * shared links keep working.
  */
 export function screenFromScan(payload: string): Screen | null {
-  return screenFromUrl(payload) ?? parseScreenString(payload)
+  return (
+    parseIntervalsUri(payload) ??
+    screenFromUrl(payload) ??
+    parseScreenString(payload)
+  )
 }
