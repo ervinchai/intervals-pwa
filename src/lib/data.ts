@@ -16,6 +16,8 @@ import {
   type PrintLabelInput,
   type PrintResult,
   PrintResultSchema,
+  type PrinterStatus,
+  PrinterStatusSchema,
   type Recipe,
   type RecipeCollection,
 } from '@/lib/contracts'
@@ -189,4 +191,17 @@ export async function logBrew(input: BrewLogInput): Promise<BrewLogEntry> {
 export async function printLabel(input: PrintLabelInput): Promise<PrintResult> {
   if (getConfig().useMockData) return mock({ ok: true })
   return runScript('intervals/print_label', { ...input }, PrintResultSchema)
+}
+
+/**
+ * Read the printer's live Bluetooth connectivity from the backend (which mirrors
+ * a Home Assistant sensor). The print flow polls this while a print is in flight
+ * — `printLabel` only resolves once the job finishes — to reflect the
+ * connecting → printing handoff. Like {@link printLabel} it's an action-adjacent
+ * read, not a cached resource, so it's gated on `useMockData` rather than
+ * `mockOverrides`; in mock mode it reports connected so the flow still advances.
+ */
+export async function fetchPrinterStatus(): Promise<PrinterStatus> {
+  if (getConfig().useMockData) return mock({ connected: true })
+  return runScript('intervals/printer_status', {}, PrinterStatusSchema)
 }

@@ -1,7 +1,8 @@
-import { ArrowLeft, Coffee, Plus, Star, Timer } from 'lucide-react'
+import { ArrowLeft, Coffee, Plus, Printer, Star, Timer } from 'lucide-react'
 import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
+import { PrintLabelDialog } from '@/components/print'
 import { AsyncScreen } from '@/components/ScreenState'
 import {
   Badge,
@@ -24,6 +25,7 @@ import type {
   CoffeeBean,
 } from '@/lib/contracts'
 import { fetchCoffeeBean, logBrew } from '@/lib/data'
+import { beanLabel } from '@/lib/labels'
 import { useResource } from '@/lib/useResource'
 
 const BREW_METHODS = ['Espresso', 'V60', 'AeroPress', 'French Press', 'Moka', 'Cold Brew'] as const
@@ -37,6 +39,7 @@ const BREW_RESULTS: BrewResult[] = ['Sour / Under', 'Balanced', 'Bitter / Over']
 export function BeanView({ beanId }: { beanId: string }) {
   const { back, canGoBack } = useRouter()
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
+  const [printing, setPrinting] = useState(false)
 
   return (
     <AsyncScreen
@@ -61,7 +64,21 @@ export function BeanView({ beanId }: { beanId: string }) {
             </Stack>
             <Spacer />
             <Text tone="faint">{data.id}</Text>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Print label"
+              onClick={() => setPrinting(true)}
+            >
+              <Printer className="h-6 w-6" />
+            </Button>
           </Row>
+
+          <PrintLabelDialog
+            label={beanLabel(data)}
+            open={printing}
+            onClose={() => setPrinting(false)}
+          />
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid grid-cols-3 gap-6">

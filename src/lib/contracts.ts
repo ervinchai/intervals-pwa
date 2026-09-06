@@ -210,6 +210,15 @@ export const PrintResultSchema = z.object({
   detail: z.string().optional(),
 })
 
+/**
+ * Live printer connectivity, mirrored from Home Assistant. Since a print blocks
+ * until it finishes, the print flow polls this to show the connect → print step;
+ * `connected` is the only field the UI reads. */
+export const PrinterStatusSchema = z.object({
+  connected: z.boolean(),
+  detail: z.string().optional(),
+})
+
 export type Ingredient = z.infer<typeof IngredientSchema>
 export type Recipe = z.infer<typeof RecipeSchema>
 export type RecipeSummary = z.infer<typeof RecipeSummarySchema>
@@ -229,3 +238,4 @@ export type CoffeeCollection = z.infer<typeof CoffeeCollectionSchema>
 export type BrewLogInput = z.infer<typeof BrewLogInputSchema>
 export type PrintLabelInput = z.infer<typeof PrintLabelInputSchema>
 export type PrintResult = z.infer<typeof PrintResultSchema>
+export type PrinterStatus = z.infer<typeof PrinterStatusSchema>

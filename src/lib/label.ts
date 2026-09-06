@@ -29,6 +29,10 @@ export const TOP_MARGIN = 4
 
 /** Padding inside the portrait frame so content clears the label edges. */
 const SIDE_PAD = 24
+// Nudge all content (QR + caption) this many px toward portrait +x, so it clears
+// the label's left edge (portrait-left == the print's bottom bleed edge). The
+// preview offsets its left bleed strip by the same amount to stay balanced.
+const CONTENT_X_OFFSET = 2
 // Flush to the portrait's top edge so the QR hugs the left of the rotated
 // (555×360) print image — no leading margin before the code.
 const QR_TOP = 0
@@ -99,7 +103,7 @@ export async function renderPortrait(
       errorCorrectionLevel: 'M',
       color: { dark: '#000000', light: '#ffffff' },
     })
-    ctx.drawImage(qr, SIDE_PAD, QR_TOP, QR_SIZE, QR_SIZE)
+    ctx.drawImage(qr, SIDE_PAD + CONTENT_X_OFFSET, QR_TOP, QR_SIZE, QR_SIZE)
   }
 
   // Caption beneath the QR, centred, wrapped, and style-aware.
@@ -117,21 +121,64 @@ export async function renderPortrait(
     ctx.textBaseline = 'top'
 
     const maxWidth = PORTRAIT_WIDTH - SIDE_PAD * 2
-    const lines: StyledRun[][] = []
+    const wrapped: StyledRun[][] = []
     for (const paragraph of rich) {
-      for (const line of wrapRuns(ctx, paragraph, maxWidth)) {
-        lines.push(line)
-        if (lines.length >= CAPTION_MAX_LINES) break
-      }
-      if (lines.length >= CAPTION_MAX_LINES) break
+      for (const line of wrapRuns(ctx, paragraph, maxWidth)) wrapped.push(line)
     }
 
+    // Clip to the line budget; if we dropped lines, the last kept one gets an
+    // ellipsis so the truncation is visible rather than silent.
+    const overflow = wrapped.length > CAPTION_MAX_LINES
+    const lines = wrapped.slice(0, CAPTION_MAX_LINES)
+    const lastIndex = lines.length - 1
+
     let y = QR_TOP + QR_SIZE + CAPTION_GAP
-    for (const line of lines) {
-      drawStyledLine(ctx, line, y, maxWidth)
+    lines.forEach((line, i) => {
+      // Ellipsize when a line is wider than the label (e.g. one unbreakable
+      // token) or when it's the last line of overflowing content.
+      const clip = measureLine(ctx, line) > maxWidth || (overflow && i === lastIndex)
+      drawStyledLine(ctx, clip ? ellipsizeLine(ctx, line, maxWidth) : line, y, maxWidth)
       y += CAPTION_LINE_PX
-    }
+    })
   }
+}
+
+/** Total rendered width of a line's runs, each measured in its own font. */
+function measureLine(ctx: CanvasRenderingContext2D, runs: StyledRun[]): number {
+  let total = 0
+  for (const run of runs) {
+    ctx.font = runFont(run)
+    total += ctx.measureText(run.text).width
+  }
+  return total
+}
+
+/**
+ * Trims a line from the end until it plus an ellipsis fits `maxWidth`, then
+ * appends the ellipsis. Called both for over-wide lines and to mark dropped
+ * trailing content; when the line already fits it just appends the ellipsis.
+ */
+function ellipsizeLine(
+  ctx: CanvasRenderingContext2D,
+  line: StyledRun[],
+  maxWidth: number,
+): StyledRun[] {
+  const ellipsis: StyledRun = { text: '…', bold: false, italic: false, underline: false }
+  ctx.font = runFont(ellipsis)
+  const ellipsisWidth = ctx.measureText('…').width
+
+  const out = line.map((run) => ({ ...run }))
+  while (out.length > 0 && measureLine(ctx, out) + ellipsisWidth > maxWidth) {
+    const last = out[out.length - 1]
+    if (last.text.length <= 1) out.pop()
+    else last.text = last.text.slice(0, -1)
+  }
+  // Drop any trailing space so the ellipsis sits flush against the last glyph.
+  if (out.length > 0) {
+    out[out.length - 1].text = out[out.length - 1].text.replace(/\s+$/, '')
+  }
+  out.push(ellipsis)
+  return out
 }
 
 /** Builds the caption font string for a given run style. */
@@ -153,7 +200,7 @@ function drawStyledLine(
     ctx.font = runFont(run)
     total += ctx.measureText(run.text).width
   }
-  let x = (PORTRAIT_WIDTH - Math.min(total, maxWidth)) / 2
+  let x = (PORTRAIT_WIDTH - Math.min(total, maxWidth)) / 2 + CONTENT_X_OFFSET
   for (const run of runs) {
     ctx.font = runFont(run)
     const w = ctx.measureText(run.text).width
@@ -163,6 +210,18 @@ function drawStyledLine(
     }
     x += w
   }
+}
+
+/**
+ * Renders a label fully offscreen and returns the print-ready base64 PNG (the
+ * rotated {@link PRINT_WIDTH}×{@link PRINT_HEIGHT} frame). This is the headless
+ * path for callers that print without showing a preview canvas — the reusable
+ * print flow renders straight to bytes from a {@link LabelInput}.
+ */
+export async function renderLabelBase64(input: LabelInput): Promise<string> {
+  const canvas = document.createElement('canvas')
+  await renderPortrait(canvas, input)
+  return canvasToBase64(toPrintCanvas(canvas))
 }
 
 /**
