@@ -13,6 +13,9 @@ import {
   type CoffeeBean,
   type CoffeeCollection,
   type MealPlan,
+  type PrintLabelInput,
+  type PrintResult,
+  PrintResultSchema,
   type Recipe,
   type RecipeCollection,
 } from '@/lib/contracts'
@@ -171,4 +174,19 @@ export async function fetchCoffeeBean(id: string): Promise<CoffeeBean> {
 export async function logBrew(input: BrewLogInput): Promise<BrewLogEntry> {
   if (shouldMock('coffee')) return mock(mockLogBrew(input))
   return runScript('intervals/brew_create', { ...input }, BrewLogEntrySchema)
+}
+
+/**
+ * Send a rendered label to the Niimbot printer via the backend.
+ *
+ * The Windmill script (`intervals/print_label`) holds the HA credentials and
+ * maps this generic payload onto the actual Home Assistant service call — the
+ * PWA never touches the HA token, and the exact service name lives server-side
+ * so it can change without a client redeploy. This is an action, not a resource,
+ * so it isn't in `mockOverrides`; in mock mode it just resolves ok, letting the
+ * button be exercised without a live backend.
+ */
+export async function printLabel(input: PrintLabelInput): Promise<PrintResult> {
+  if (getConfig().useMockData) return mock({ ok: true })
+  return runScript('intervals/print_label', { ...input }, PrintResultSchema)
 }

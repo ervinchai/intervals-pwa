@@ -1,17 +1,25 @@
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Printer, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { RichCaptionEditor } from '@/components/RichCaptionEditor'
 import { Button, Heading, Input, Row, Stack, Text } from '@/components/ui'
+import { printLabel } from '@/lib/data'
 import {
   canvasToBase64,
+  htmlToRichText,
   PORTRAIT_HEIGHT,
   PORTRAIT_WIDTH,
   renderPortrait,
+  richTextToPlain,
   toPrintCanvas,
 } from '@/lib/label'
 
 // How long the "Copied" confirmation stays up before reverting the button.
 const COPIED_MS = 1500
+// How long the print outcome (sent / failed) lingers before the button resets.
+const PRINT_RESULT_MS = 2500
+
+type PrintState = 'idle' | 'sending' | 'sent' | 'error'
 
 /**
  * QR label maker. The user types a payload (an `intervals://` URI, a URL, or any
@@ -26,19 +34,22 @@ const COPIED_MS = 1500
  */
 export function Print() {
   const [payload, setPayload] = useState('')
-  const [caption, setCaption] = useState('')
+  // Caption is rich text, stored as the editor's raw HTML.
+  const [captionHtml, setCaptionHtml] = useState('')
   const [copied, setCopied] = useState(false)
+  const [printState, setPrintState] = useState<PrintState>('idle')
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // Re-render the preview whenever the inputs change.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const caption = htmlToRichText(captionHtml)
     void renderPortrait(canvas, { payload, caption }).catch(() => {
       // A malformed payload (e.g. too long for the QR version) shouldn't crash
       // the screen; the preview simply keeps its previous frame.
     })
-  }, [payload, caption])
+  }, [payload, captionHtml])
 
   const copyBase64 = useCallback(async () => {
     const canvas = canvasRef.current
@@ -53,6 +64,21 @@ export function Print() {
       // as-is rather than falsely confirming.
     }
   }, [payload])
+
+  const sendToPrinter = useCallback(async () => {
+    const canvas = canvasRef.current
+    if (!canvas || !payload || printState === 'sending') return
+    setPrintState('sending')
+    const imageBase64 = canvasToBase64(toPrintCanvas(canvas))
+    const caption = richTextToPlain(htmlToRichText(captionHtml))
+    try {
+      const { ok } = await printLabel({ imageBase64, caption, payload })
+      setPrintState(ok ? 'sent' : 'error')
+    } catch {
+      setPrintState('error')
+    }
+    window.setTimeout(() => setPrintState('idle'), PRINT_RESULT_MS)
+  }, [payload, captionHtml, printState])
 
   return (
     <Stack gap="lg" className="h-full">
@@ -80,14 +106,37 @@ export function Print() {
             <Heading role="label" as="span">
               Caption
             </Heading>
-            <Input
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Printed beneath the code"
+            <RichCaptionEditor
+              value={captionHtml}
+              onChange={setCaptionHtml}
+              placeholder="Printed beneath the code — up to 7 lines"
             />
           </Stack>
 
-          <Button onClick={copyBase64} disabled={!payload} full>
+          <Button
+            onClick={sendToPrinter}
+            disabled={!payload || printState === 'sending'}
+            full
+          >
+            {printState === 'sent' ? (
+              <>
+                <Check className="h-5 w-5" />
+                Sent to printer
+              </>
+            ) : printState === 'error' ? (
+              <>
+                <X className="h-5 w-5" />
+                Print failed
+              </>
+            ) : (
+              <>
+                <Printer className="h-5 w-5" />
+                {printState === 'sending' ? 'Sending…' : 'Print'}
+              </>
+            )}
+          </Button>
+
+          <Button variant="secondary" onClick={copyBase64} disabled={!payload} full>
             {copied ? (
               <>
                 <Check className="h-5 w-5" />

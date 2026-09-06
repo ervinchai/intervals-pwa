@@ -197,6 +197,22 @@ export const BrewLogInputSchema = z.object({
   notes: z.string().optional(),
 })
 
+/**
+ * A label-print request sent to the backend. `imageBase64` is the raw base64 of
+ * the 555×360 PNG (no `data:` prefix); `caption`/`payload` are passed through
+ * for logging/notification only — the printer consumes the image. */
+export const PrintLabelInputSchema = z.object({
+  imageBase64: z.string(),
+  caption: z.string().default(''),
+  payload: z.string().default(''),
+})
+
+/** Result of a print request. `ok` is the only field screens depend on. */
+export const PrintResultSchema = z.object({
+  ok: z.boolean(),
+  detail: z.string().optional(),
+})
+
 export type Ingredient = z.infer<typeof IngredientSchema>
 export type Recipe = z.infer<typeof RecipeSchema>
 export type RecipeSummary = z.infer<typeof RecipeSummarySchema>
@@ -214,3 +230,5 @@ export type CoffeeBeanSummary = z.infer<typeof CoffeeBeanSummarySchema>
 export type CoffeeBean = z.infer<typeof CoffeeBeanSchema>
 export type CoffeeCollection = z.infer<typeof CoffeeCollectionSchema>
 export type BrewLogInput = z.infer<typeof BrewLogInputSchema>
+export type PrintLabelInput = z.infer<typeof PrintLabelInputSchema>
+export type PrintResult = z.infer<typeof PrintResultSchema>
