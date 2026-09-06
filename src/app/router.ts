@@ -93,6 +93,59 @@ export function parseScreenString(raw: string): Screen | null {
 }
 
 /**
+ * Serialises a `Screen` back into the `?s=` grammar (`recipe:ragu-bianco`),
+ * the inverse of {@link parseScreenString}. Still used by the HA/deep-link
+ * plumbing; the browser address bar uses {@link screenToPath} instead.
+ */
+export function screenToString(screen: Screen): string {
+  switch (screen.name) {
+    case 'recipe':
+      return `recipe:${screen.recipeId}`
+    case 'bean':
+      return `bean:${screen.beanId}`
+    default:
+      return screen.name
+  }
+}
+
+/**
+ * The canonical RESTful path for a screen, e.g. `/`, `/print`,
+ * `/recipe/ragu-bianco`. This is what the address bar shows; {@link
+ * screenFromPath} is its inverse. `today` is the root so the home screen has a
+ * clean `/`.
+ */
+export function screenToPath(screen: Screen): string {
+  switch (screen.name) {
+    case 'today':
+      return '/'
+    case 'recipe':
+      return `/recipe/${encodeURIComponent(screen.recipeId)}`
+    case 'bean':
+      return `/bean/${encodeURIComponent(screen.beanId)}`
+    default:
+      return `/${screen.name}`
+  }
+}
+
+/**
+ * Resolves the screen from a URL pathname (`/recipe/ragu-bianco`), the inverse
+ * of {@link screenToPath}. The root path is `today`. Returns null for an
+ * unrecognised path so the caller can fall back rather than blank the display.
+ */
+export function screenFromPath(pathname: string): Screen | null {
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments.length === 0) return { name: 'today' }
+  const name = segments[0]
+  let param = segments[1] ?? ''
+  try {
+    param = decodeURIComponent(param)
+  } catch {
+    // Malformed escape — fall back to the raw segment.
+  }
+  return screenFromParts(name, param)
+}
+
+/**
  * Parses the canonical Intervals QR/deep-link format: `intervals://<screen>` or
  * `intervals://<screen>/<param>`, e.g. `intervals://recipe/ragu-bianco`.
  *

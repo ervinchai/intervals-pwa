@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 
 import { App } from '@/app/App'
-import { screenFromUrl } from '@/app/router'
+import { screenFromPath, screenFromUrl } from '@/app/router'
 import { loadConfig } from '@/lib/config'
 import '@/index.css'
 
@@ -15,9 +15,13 @@ import '@/index.css'
 async function boot() {
   const config = await loadConfig()
 
-  // A scanned QR code / shared link lands here as `?s=recipe:ragu-bianco`.
-  // Resolve it before first render so we open straight onto the target screen.
-  const initialScreen = screenFromUrl(window.location.href) ?? undefined
+  // Resolve the initial screen before first render so we open straight onto the
+  // target: the RESTful path (`/recipe/ragu-bianco`) first, then the legacy
+  // `?s=recipe:ragu-bianco` deep link for older shared links / QR codes.
+  const initialScreen =
+    screenFromPath(window.location.pathname) ??
+    screenFromUrl(window.location.href) ??
+    undefined
 
   const root = document.getElementById('root')
   if (!root) throw new Error('#root missing from index.html')
