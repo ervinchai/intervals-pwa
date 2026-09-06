@@ -43,8 +43,12 @@ function shouldMock(endpoint: MockEndpoint): boolean {
 /**
  * Run a Windmill script by path and validate its result against a contract.
  *
- * `scriptPath` is the path within the workspace, without the leading `f/`
+ * `scriptPath` is the path within the `f/` folder, without that prefix
  * (e.g. `intervals/today`). `args` become the script's inputs.
+ *
+ * The endpoint is `run_wait_result/p/{fullPath}`, where `p` selects "script by
+ * path" (vs `f` for a flow) and the script's full path includes the `f/`
+ * folder — hence the `p/f/` below.
  */
 async function runScript<T>(
   scriptPath: string,
@@ -57,7 +61,7 @@ async function runScript<T>(
     throw new Error(`Windmill is not configured; cannot run ${scriptPath}`)
   }
 
-  const url = `${config.windmillBaseUrl}/api/w/${config.windmillWorkspace}/jobs/run_wait_result/f/${scriptPath}`
+  const url = `${config.windmillBaseUrl}/api/w/${config.windmillWorkspace}/jobs/run_wait_result/p/f/${scriptPath}`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
