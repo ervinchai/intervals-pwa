@@ -162,8 +162,9 @@ function Session({ bean }: { bean: CoffeeBean }) {
               value={grind}
               onChange={setGrind}
               min={0}
-              max={10}
+              max={16}
               step={0.1}
+              minorUntil={4}
             />
           </Card>
 

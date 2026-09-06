@@ -19,6 +19,10 @@ type RulerSliderProps = {
   step?: number
   /** Interval between tall, labelled ticks. */
   major?: number
+  /** Draw the fine minor ticks only up to this value; above it, majors only.
+   *  Lets the scale stay dense where fine adjustment matters (the espresso end)
+   *  and go sparse where it doesn't. Omit to draw minors across the whole range. */
+  minorUntil?: number
   /** Digits after the decimal in the readout. */
   precision?: number
   className?: string
@@ -32,6 +36,7 @@ export function RulerSlider({
   max = 10,
   step = 0.1,
   major = 1,
+  minorUntil,
   precision = 1,
   className,
 }: RulerSliderProps) {
@@ -67,7 +72,7 @@ export function RulerSlider({
     const v = min + i * step
     const isMajor = Math.abs(v / major - Math.round(v / major)) < 1e-6
     return { v, isMajor, pos: (i / count) * 100 }
-  })
+  }).filter((t) => t.isMajor || minorUntil == null || t.v <= minorUntil + 1e-6)
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
