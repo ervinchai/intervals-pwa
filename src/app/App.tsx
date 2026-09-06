@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarRange,
   Coffee,
+  Printer,
   QrCode,
   Settings as SettingsIcon,
   Sunrise,
@@ -16,6 +17,7 @@ import { BeanView } from '@/screens/BeanView'
 import { Beans } from '@/screens/Beans'
 import { Collection } from '@/screens/Collection'
 import { MealPlan } from '@/screens/MealPlan'
+import { Print } from '@/screens/Print'
 import { RecipeView } from '@/screens/RecipeView'
 import { Scan } from '@/screens/Scan'
 import { Settings } from '@/screens/Settings'
@@ -99,6 +101,8 @@ function renderScreen(screen: Screen): ReactNode {
       return <Settings />
     case 'scan':
       return <Scan />
+    case 'print':
+      return <Print />
   }
 }
 
@@ -176,6 +180,15 @@ function NavRail({ devBadge }: { devBadge: boolean }) {
         onClick={() => navigate({ name: 'scan' })}
       >
         <QrCode className="h-6 w-6" />
+      </Button>
+
+      <Button
+        size="icon"
+        variant={screen.name === 'print' ? 'secondary' : 'ghost'}
+        aria-label="Print QR label"
+        onClick={() => navigate({ name: 'print' })}
+      >
+        <Printer className="h-6 w-6" />
       </Button>
 
       <Spacer />

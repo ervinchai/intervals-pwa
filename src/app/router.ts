@@ -19,6 +19,7 @@ export type Screen =
   | { name: 'bean'; beanId: string }
   | { name: 'settings' }
   | { name: 'scan' }
+  | { name: 'print' }
 
 export type ScreenName = Screen['name']
 
@@ -70,6 +71,8 @@ function screenFromParts(name: string, param: string): Screen | null {
       return { name: 'settings' }
     case 'scan':
       return { name: 'scan' }
+    case 'print':
+      return { name: 'print' }
     default:
       return null
   }
