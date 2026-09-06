@@ -158,7 +158,6 @@ export const CoffeeBeanSummarySchema = z.object({
   roastDateLabel: z.string().optional(),
   status: z.string().optional(),
   rating: z.number().optional(),
-  imageUrl: z.string().optional(),
 })
 
 /** Full bean detail, including its brew-log history. */
@@ -195,6 +194,32 @@ export const BrewLogInputSchema = z.object({
   rating: z.number().optional(),
   adjustment: z.string().optional(),
   notes: z.string().optional(),
+})
+
+/**
+ * What the "New bean" form sends to catalog a bag. The backend assigns the Bean
+ * ID (Notion auto-increment) and formats the date labels, so neither is sent.
+ * `roastDate`/`purchaseDate` are plain ISO calendar dates (yyyy-mm-dd).
+ */
+export const BeanCreateInputSchema = z.object({
+  name: z.string().min(1),
+  roaster: z.string().optional(),
+  origin: z.string().optional(),
+  region: z.string().optional(),
+  producer: z.string().optional(),
+  process: z.string().optional(),
+  varietal: z.string().optional(),
+  altitude: z.string().optional(),
+  roastLevel: z.string().optional(),
+  roastDate: z.string().optional(),
+  purchaseDate: z.string().optional(),
+  weightG: z.number().optional(),
+  price: z.number().optional(),
+  tastingNotes: z.string().optional(),
+  targetRecipe: z.string().optional(),
+  brewMethods: z.array(z.string()).default([]),
+  status: z.string().optional(),
+  rating: z.number().optional(),
 })
 
 /**
@@ -236,6 +261,7 @@ export type CoffeeBeanSummary = z.infer<typeof CoffeeBeanSummarySchema>
 export type CoffeeBean = z.infer<typeof CoffeeBeanSchema>
 export type CoffeeCollection = z.infer<typeof CoffeeCollectionSchema>
 export type BrewLogInput = z.infer<typeof BrewLogInputSchema>
+export type BeanCreateInput = z.infer<typeof BeanCreateInputSchema>
 export type PrintLabelInput = z.infer<typeof PrintLabelInputSchema>
 export type PrintResult = z.infer<typeof PrintResultSchema>
 export type PrinterStatus = z.infer<typeof PrinterStatusSchema>

@@ -1,7 +1,9 @@
 import type {
+  BeanCreateInput,
   BrewLogEntry,
   BrewLogInput,
   CoffeeBean,
+  CoffeeBeanSummary,
 } from '@/lib/contracts'
 
 /**
@@ -133,4 +135,43 @@ export function mockLogBrew(input: BrewLogInput): BrewLogEntry {
 /** Reserve the next bean id, so a create form can preview its printable code. */
 export function mockNextBeanId(): string {
   return `BN-${nextBean}`
+}
+
+/** Turn an ISO date (yyyy-mm-dd) into the short label the backend would format. */
+function label(iso?: string): string | undefined {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? undefined
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+/** Catalog a new bean in the in-memory store and return its summary. */
+export function mockCreateBean(input: BeanCreateInput): CoffeeBeanSummary {
+  const id = `BN-${nextBean++}`
+  const bean: CoffeeBean = {
+    id,
+    name: input.name,
+    roaster: input.roaster,
+    origin: input.origin,
+    region: input.region,
+    producer: input.producer,
+    process: input.process,
+    varietal: input.varietal,
+    altitude: input.altitude,
+    roastLevel: input.roastLevel,
+    roastDateLabel: label(input.roastDate),
+    purchaseDateLabel: label(input.purchaseDate),
+    weightG: input.weightG,
+    price: input.price,
+    tastingNotes: input.tastingNotes,
+    targetRecipe: input.targetRecipe,
+    brewMethods: input.brewMethods,
+    status: input.status,
+    rating: input.rating,
+    brews: [],
+  }
+  BEANS[id] = bean
+  const { name, roaster, origin, roastLevel, roastDateLabel, status, rating } = bean
+  return { id, name, roaster, origin, roastLevel, roastDateLabel, status, rating }
 }

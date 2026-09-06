@@ -1,16 +1,17 @@
-import { Coffee, Star } from 'lucide-react'
+import { Plus, Star } from 'lucide-react'
 
 import { useRouter } from '@/app/router'
 import { AsyncScreen } from '@/components/ScreenState'
 import {
   Badge,
+  Button,
   Card,
   Grid,
   Heading,
-  Image,
   Row,
   Skeleton,
   SkeletonLine,
+  Spacer,
   Stack,
   Text,
 } from '@/components/ui'
@@ -40,10 +41,19 @@ export function Beans() {
             <Heading role="hero" level={1}>
               Coffee
             </Heading>
+            <Spacer />
+            <Button size="icon" aria-label="New bean" onClick={() => navigate({ name: 'new-bean' })}>
+              <Plus className="h-6 w-6" />
+            </Button>
           </Row>
 
           {beans.length === 0 ? (
-            <Text tone="faint">No beans catalogued yet.</Text>
+            <Stack gap="md" align="start">
+              <Text tone="faint">No beans catalogued yet.</Text>
+              <Button variant="primary" onClick={() => navigate({ name: 'new-bean' })}>
+                Add a bean
+              </Button>
+            </Stack>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <Grid cols={3} gap="lg">
@@ -78,14 +88,6 @@ function BeanCard({
       className="flex flex-col gap-3"
       onClick={onPick}
     >
-      {bean.imageUrl ? (
-        <Image src={bean.imageUrl} alt="" ratio="wide" />
-      ) : (
-        <div className="flex aspect-[3/2] w-full items-center justify-center rounded-card bg-raised">
-          <Coffee className="h-8 w-8 text-ink-faint" />
-        </div>
-      )}
-
       <Stack gap="xs" className="min-w-0">
         <Heading role="section" className="min-w-0">
           {bean.name}
@@ -130,7 +132,6 @@ function BeansSkeleton() {
       <Grid cols={3} gap="lg" className="min-h-0">
         {Array.from({ length: 6 }, (_, i) => (
           <Card key={i} pad="sm" className="flex flex-col gap-3">
-            <Skeleton className="aspect-[3/2] w-full rounded-card" />
             <Heading role="section" className="w-3/4">
               <SkeletonLine />
             </Heading>

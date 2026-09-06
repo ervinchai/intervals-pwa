@@ -18,6 +18,7 @@ import { Beans } from '@/screens/Beans'
 import { BrewSession } from '@/screens/BrewSession'
 import { Collection } from '@/screens/Collection'
 import { MealPlan } from '@/screens/MealPlan'
+import { NewBean } from '@/screens/NewBean'
 import { Print } from '@/screens/Print'
 import { RecipeView } from '@/screens/RecipeView'
 import { Scan } from '@/screens/Scan'
@@ -96,6 +97,8 @@ function renderScreen(screen: Screen): ReactNode {
       return <RecipeView recipeId={screen.recipeId} />
     case 'beans':
       return <Beans />
+    case 'new-bean':
+      return <NewBean />
     case 'bean':
       return <BeanView beanId={screen.beanId} />
     case 'brew':

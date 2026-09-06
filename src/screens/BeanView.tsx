@@ -1,4 +1,4 @@
-import { ArrowLeft, Coffee, Plus, Printer, Star, Timer } from 'lucide-react'
+import { ArrowLeft, Plus, Printer, Star, Timer } from 'lucide-react'
 import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
@@ -9,7 +9,6 @@ import {
   Button,
   Card,
   Heading,
-  Image,
   Row,
   Skeleton,
   SkeletonLine,
@@ -93,14 +92,6 @@ export function BeanView({ beanId }: { beanId: string }) {
 function BeanFacts({ bean }: { bean: CoffeeBean }) {
   return (
     <Stack gap="md">
-      {bean.imageUrl ? (
-        <Image src={bean.imageUrl} alt="" ratio="wide" />
-      ) : (
-        <div className="flex aspect-[3/2] w-full items-center justify-center rounded-card bg-raised">
-          <Coffee className="h-10 w-10 text-ink-faint" />
-        </div>
-      )}
-
       <Row gap="sm" className="flex-wrap">
         {bean.roastLevel ? <Badge tone="ember">{bean.roastLevel}</Badge> : null}
         {bean.process ? <Badge>{bean.process}</Badge> : null}
