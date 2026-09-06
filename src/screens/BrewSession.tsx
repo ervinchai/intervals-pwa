@@ -12,7 +12,7 @@ import {
   Row,
   Spacer,
   Stack,
-  Stepper,
+  Scrubber,
   Text,
 } from '@/components/ui'
 import { cn } from '@/lib/cn'
@@ -29,9 +29,9 @@ const TEMP_KEY = 'intervals:brew:lastTempC'
 
 /**
  * A live dial-in session on its own screen. Reached from the bean's `+`. The
- * point is to brew *with* it open — turn the grind collar, tap dose and yield
- * up or down, run the shot timer — and have the ratio and everything else move
- * in real time, then save the shot you actually pulled.
+ * point is to brew *with* it open — turn the grind collar, scrub dose, yield,
+ * time and temp — and have the ratio and everything else move in real time,
+ * then save the shot you actually pulled.
  */
 export function BrewSession({ beanId }: { beanId: string }) {
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
@@ -81,8 +81,7 @@ function Session({ bean }: { bean: CoffeeBean }) {
   const ratio = dose > 0 ? Math.round((yieldG / dose) * 10) / 10 : null
 
   // Espresso is dialled in grams and single seconds; a pour-over like the V60
-  // runs long and gets nudged in coarser steps, so key the increments off the
-  // method.
+  // runs long and gets nudged coarser, so key the scrub steps off the method.
   const espresso = method === 'Espresso'
   const yieldStep = espresso ? 0.5 : 5
   const timeStep = espresso ? 1 : 5
@@ -170,21 +169,21 @@ function Session({ bean }: { bean: CoffeeBean }) {
             {/* Dose · yield · ratio */}
             <Card pad="lg">
               <Stack gap="lg" className="h-full">
-                <Stepper
+                <Scrubber
                   label="Dose"
                   value={dose}
                   onChange={setDose}
-                  step={0.1}
                   min={0}
+                  step={0.1}
                   format={(v) => v.toFixed(1)}
                   unit="g"
                 />
-                <Stepper
+                <Scrubber
                   label="Yield"
                   value={yieldG}
                   onChange={setYieldG}
-                  step={yieldStep}
                   min={0}
+                  step={yieldStep}
                   format={(v) => v.toFixed(espresso ? 1 : 0)}
                   unit="g"
                 />
@@ -213,7 +212,7 @@ function Session({ bean }: { bean: CoffeeBean }) {
                 column height. Temp carries over between sessions. */}
             <div className="flex flex-col gap-6">
               <Card pad="lg" className="flex flex-1 flex-col justify-center">
-                <Stepper
+                <Scrubber
                   label="Time"
                   value={time}
                   onChange={setTime}
@@ -223,7 +222,7 @@ function Session({ bean }: { bean: CoffeeBean }) {
                 />
               </Card>
               <Card pad="lg" className="flex flex-1 flex-col justify-center">
-                <Stepper
+                <Scrubber
                   label="Temp"
                   value={temp}
                   onChange={setTemp}
