@@ -15,6 +15,8 @@ export type Screen =
   | { name: 'meal-plan' }
   | { name: 'collection' }
   | { name: 'recipe'; recipeId: string }
+  | { name: 'beans' }
+  | { name: 'bean'; beanId: string }
   | { name: 'settings' }
   | { name: 'scan' }
 
@@ -60,6 +62,10 @@ function screenFromParts(name: string, param: string): Screen | null {
       return { name: 'collection' }
     case 'recipe':
       return param ? { name: 'recipe', recipeId: param } : null
+    case 'beans':
+      return { name: 'beans' }
+    case 'bean':
+      return param ? { name: 'bean', beanId: param } : null
     case 'settings':
       return { name: 'settings' }
     case 'scan':

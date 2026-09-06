@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import {
   BookOpen,
   CalendarRange,
+  Coffee,
   QrCode,
   Settings as SettingsIcon,
   Sunrise,
@@ -11,6 +12,8 @@ import type { ReactNode } from 'react'
 import { RouterProvider } from '@/app/RouterProvider'
 import { useRouter, type Screen } from '@/app/router'
 import { Button, Spacer } from '@/components/ui'
+import { BeanView } from '@/screens/BeanView'
+import { Beans } from '@/screens/Beans'
 import { Collection } from '@/screens/Collection'
 import { MealPlan } from '@/screens/MealPlan'
 import { RecipeView } from '@/screens/RecipeView'
@@ -88,6 +91,10 @@ function renderScreen(screen: Screen): ReactNode {
       return <Collection />
     case 'recipe':
       return <RecipeView recipeId={screen.recipeId} />
+    case 'beans':
+      return <Beans />
+    case 'bean':
+      return <BeanView beanId={screen.beanId} />
     case 'settings':
       return <Settings />
     case 'scan':
@@ -95,9 +102,11 @@ function renderScreen(screen: Screen): ReactNode {
   }
 }
 
-/** Distinct key per screen *instance*, so recipe→recipe still animates. */
+/** Distinct key per screen *instance*, so recipe→recipe and bean→bean animate. */
 function screenKey(screen: Screen): string {
-  return screen.name === 'recipe' ? `recipe:${screen.recipeId}` : screen.name
+  if (screen.name === 'recipe') return `recipe:${screen.recipeId}`
+  if (screen.name === 'bean') return `bean:${screen.beanId}`
+  return screen.name
 }
 
 /**
@@ -143,6 +152,21 @@ function NavRail({ devBadge }: { devBadge: boolean }) {
         onClick={() => navigate({ name: 'collection' })}
       >
         <BookOpen className="h-6 w-6" />
+      </Button>
+
+      <Button
+        size="icon"
+        // A bean detail is reached through the catalog (or a scan), so the
+        // Coffee tab stays lit while one is open — the detail has no tab.
+        variant={
+          screen.name === 'beans' || screen.name === 'bean'
+            ? 'secondary'
+            : 'ghost'
+        }
+        aria-label="Coffee"
+        onClick={() => navigate({ name: 'beans' })}
+      >
+        <Coffee className="h-6 w-6" />
       </Button>
 
       <Button

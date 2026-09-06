@@ -115,6 +115,88 @@ export const BriefingSchema = z.object({
   meals: z.array(MealSchema).default([]),
 })
 
+/**
+ * Coffee — a bean catalog backed by a Notion database, plus a per-bean brew
+ * calibration log. The backend flattens Notion's property model into these
+ * shapes; the hub never sees Notion's rich-property JSON.
+ */
+
+/** Roast/brew vocabularies. Kept as plain strings — the Notion DB owns the
+ *  authoritative option list, so a new option there never breaks the contract. */
+export const BrewResultSchema = z.enum(['Sour / Under', 'Balanced', 'Bitter / Over'])
+
+/** One dial-in entry against a bean. */
+export const BrewLogEntrySchema = z.object({
+  id: z.string(),
+  /** Pre-formatted date label, e.g. "6 Sep". The backend owns the formatting. */
+  dateLabel: z.string(),
+  method: z.string(),
+  /** Grinder setting, free-form (clicks, numbers). */
+  grind: z.string().optional(),
+  doseG: z.number().optional(),
+  yieldG: z.number().optional(),
+  timeS: z.number().optional(),
+  waterTempC: z.number().optional(),
+  /** Yield ÷ dose, computed by Notion; shown as e.g. 2.1 for a 1:2.1 ratio. */
+  ratio: z.number().optional(),
+  result: BrewResultSchema.optional(),
+  rating: z.number().optional(),
+  /** What to change on the next brew. */
+  adjustment: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+/** Lightweight bean entry for the catalog grid. */
+export const CoffeeBeanSummarySchema = z.object({
+  /** The Notion "Bean ID" (e.g. "BN-12"); also the QR identity. */
+  id: z.string(),
+  name: z.string(),
+  roaster: z.string().optional(),
+  origin: z.string().optional(),
+  roastLevel: z.string().optional(),
+  /** Pre-formatted roast date, e.g. "roasted 3 days ago" or "2 Sep". */
+  roastDateLabel: z.string().optional(),
+  status: z.string().optional(),
+  rating: z.number().optional(),
+  imageUrl: z.string().optional(),
+})
+
+/** Full bean detail, including its brew-log history. */
+export const CoffeeBeanSchema = CoffeeBeanSummarySchema.extend({
+  region: z.string().optional(),
+  producer: z.string().optional(),
+  process: z.string().optional(),
+  varietal: z.string().optional(),
+  altitude: z.string().optional(),
+  purchaseDateLabel: z.string().optional(),
+  weightG: z.number().optional(),
+  price: z.number().optional(),
+  tastingNotes: z.string().optional(),
+  brewMethods: z.array(z.string()).default([]),
+  /** The current dialed-in brew — grind / dose / yield / time as one line. */
+  targetRecipe: z.string().optional(),
+  brews: z.array(BrewLogEntrySchema).default([]),
+})
+
+export const CoffeeCollectionSchema = z.object({
+  beans: z.array(CoffeeBeanSummarySchema),
+})
+
+/** What the "Log a shot" form sends to create a brew entry. */
+export const BrewLogInputSchema = z.object({
+  beanId: z.string(),
+  method: z.string(),
+  grind: z.string().optional(),
+  doseG: z.number().optional(),
+  yieldG: z.number().optional(),
+  timeS: z.number().optional(),
+  waterTempC: z.number().optional(),
+  result: BrewResultSchema.optional(),
+  rating: z.number().optional(),
+  adjustment: z.string().optional(),
+  notes: z.string().optional(),
+})
+
 export type Ingredient = z.infer<typeof IngredientSchema>
 export type Recipe = z.infer<typeof RecipeSchema>
 export type RecipeSummary = z.infer<typeof RecipeSummarySchema>
@@ -126,3 +208,9 @@ export type Weather = z.infer<typeof WeatherSchema>
 export type CalendarEvent = z.infer<typeof CalendarEventSchema>
 export type Task = z.infer<typeof TaskSchema>
 export type Briefing = z.infer<typeof BriefingSchema>
+export type BrewResult = z.infer<typeof BrewResultSchema>
+export type BrewLogEntry = z.infer<typeof BrewLogEntrySchema>
+export type CoffeeBeanSummary = z.infer<typeof CoffeeBeanSummarySchema>
+export type CoffeeBean = z.infer<typeof CoffeeBeanSchema>
+export type CoffeeCollection = z.infer<typeof CoffeeCollectionSchema>
+export type BrewLogInput = z.infer<typeof BrewLogInputSchema>

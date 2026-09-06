@@ -1,14 +1,26 @@
 import { getConfig, type MockEndpoint } from '@/lib/config'
 import {
   BriefingSchema,
+  BrewLogEntrySchema,
+  CoffeeBeanSchema,
+  CoffeeCollectionSchema,
   MealPlanSchema,
   RecipeCollectionSchema,
   RecipeSchema,
   type Briefing,
+  type BrewLogEntry,
+  type BrewLogInput,
+  type CoffeeBean,
+  type CoffeeCollection,
   type MealPlan,
   type Recipe,
   type RecipeCollection,
 } from '@/lib/contracts'
+import {
+  mockBean,
+  mockBeanList,
+  mockLogBrew,
+} from '@/mock/coffee'
 import { MOCK_BRIEFING, MOCK_MEAL_PLAN, MOCK_RECIPES } from '@/mock/data'
 
 import type { ZodType } from 'zod'
@@ -121,4 +133,42 @@ export async function fetchMealPlan(): Promise<MealPlan> {
 export async function fetchBriefing(): Promise<Briefing> {
   if (shouldMock('today')) return mock(MOCK_BRIEFING)
   return runScript('intervals/today', {}, BriefingSchema)
+}
+
+/** The coffee-bean catalog for the grid — summaries only. */
+export async function fetchCoffeeCollection(): Promise<CoffeeCollection> {
+  if (shouldMock('coffee')) {
+    // Derive summaries from the full fixtures so the two never drift apart.
+    const beans = mockBeanList().map(
+      ({ id, name, roaster, origin, roastLevel, roastDateLabel, status, rating, imageUrl }) => ({
+        id,
+        name,
+        roaster,
+        origin,
+        roastLevel,
+        roastDateLabel,
+        status,
+        rating,
+        imageUrl,
+      }),
+    )
+    return mock({ beans })
+  }
+  return runScript('intervals/beans', {}, CoffeeCollectionSchema)
+}
+
+/** One bean plus its brew-log history, addressed by its Bean ID / QR code. */
+export async function fetchCoffeeBean(id: string): Promise<CoffeeBean> {
+  if (shouldMock('coffee')) {
+    const bean = mockBean(id)
+    if (!bean) throw new Error(`No mock bean "${id}"`)
+    return mock(bean)
+  }
+  return runScript('intervals/bean', { id }, CoffeeBeanSchema)
+}
+
+/** Append a calibration entry to a bean's brew log. */
+export async function logBrew(input: BrewLogInput): Promise<BrewLogEntry> {
+  if (shouldMock('coffee')) return mock(mockLogBrew(input))
+  return runScript('intervals/brew_create', { ...input }, BrewLogEntrySchema)
 }

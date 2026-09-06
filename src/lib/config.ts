@@ -38,6 +38,7 @@ export const ConfigSchema = z.object({
       today: z.boolean().optional(),
       recipes: z.boolean().optional(),
       mealPlan: z.boolean().optional(),
+      coffee: z.boolean().optional(),
     })
     .default({}),
 })
