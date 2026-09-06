@@ -1,10 +1,9 @@
-import { ArrowLeft, Pause, Play, RotateCcw } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
 import { AsyncScreen } from '@/components/ScreenState'
 import {
-  Badge,
   Button,
   Card,
   Heading,
@@ -16,6 +15,7 @@ import {
   Stepper,
   Text,
 } from '@/components/ui'
+import { cn } from '@/lib/cn'
 import type { BrewLogInput, BrewResult, CoffeeBean } from '@/lib/contracts'
 import { fetchCoffeeBean, logBrew } from '@/lib/data'
 import { useResource } from '@/lib/useResource'
@@ -75,19 +75,17 @@ function Session({ bean }: { bean: CoffeeBean }) {
   const [adjustment, setAdjustment] = useState('')
   const [notes, setNotes] = useState('')
 
-  const [running, setRunning] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // The shot timer counts the real seconds up into `time` while it runs, so the
-  // saved brew reflects the pour you actually watched.
-  useEffect(() => {
-    if (!running) return
-    const id = window.setInterval(() => setTime((t) => t + 1), 1000)
-    return () => window.clearInterval(id)
-  }, [running])
-
   const ratio = dose > 0 ? Math.round((yieldG / dose) * 10) / 10 : null
+
+  // Espresso is dialled in grams and single seconds; a pour-over like the V60
+  // runs long and gets nudged in coarser steps, so key the increments off the
+  // method.
+  const espresso = method === 'Espresso'
+  const yieldStep = espresso ? 0.5 : 5
+  const timeStep = espresso ? 1 : 5
 
   async function submit() {
     setSaving(true)
@@ -168,12 +166,12 @@ function Session({ bean }: { bean: CoffeeBean }) {
             />
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
             {/* Dose · yield · ratio */}
             <Card pad="lg">
-              <Stack gap="lg">
+              <Stack gap="lg" className="h-full">
                 <Stepper
-                  label="Dose (g)"
+                  label="Dose"
                   value={dose}
                   onChange={setDose}
                   step={0.1}
@@ -182,65 +180,51 @@ function Session({ bean }: { bean: CoffeeBean }) {
                   unit="g"
                 />
                 <Stepper
-                  label="Yield (g)"
+                  label="Yield"
                   value={yieldG}
                   onChange={setYieldG}
-                  step={0.5}
+                  step={yieldStep}
                   min={0}
-                  format={(v) => v.toFixed(1)}
+                  format={(v) => v.toFixed(espresso ? 1 : 0)}
                   unit="g"
                 />
-                <Row justify="center">
-                  <Badge tone={ratioTone(ratio)}>
-                    Ratio {ratio != null ? `1:${ratio.toFixed(1)}` : '—'}
-                  </Badge>
+                <Spacer />
+                <Row
+                  align="baseline"
+                  justify="between"
+                  className="border-t border-line pt-4"
+                >
+                  <Text size="sm" tone="faint">
+                    Ratio
+                  </Text>
+                  <span
+                    className={cn(
+                      'text-3xl font-semibold tabular-nums',
+                      ratioInRange(ratio) ? 'text-ember' : 'text-ink',
+                    )}
+                  >
+                    {ratio != null ? `1:${ratio.toFixed(1)}` : '—'}
+                  </span>
                 </Row>
               </Stack>
             </Card>
 
-            {/* Shot timer, then water temp (remembered across sessions) */}
-            <Card pad="lg">
-              <Stack gap="lg">
+            {/* Time and temp — their own cards, stacked to match the dose/yield
+                column height. Temp carries over between sessions. */}
+            <div className="flex flex-col gap-6">
+              <Card pad="lg" className="flex flex-1 flex-col justify-center">
                 <Stepper
-                  label="Time (s)"
+                  label="Time"
                   value={time}
                   onChange={setTime}
-                  step={1}
+                  step={timeStep}
                   min={0}
-                  unit="s"
-                  trailing={
-                    <Row gap="sm" justify="center" className="pt-1">
-                      <Button
-                        size="sm"
-                        variant={running ? 'select' : 'quiet'}
-                        onClick={() => setRunning((r) => !r)}
-                      >
-                        {running ? (
-                          <>
-                            <Pause className="mr-2 h-4 w-4" />
-                            Stop
-                          </>
-                        ) : (
-                          <>
-                            <Play className="mr-2 h-4 w-4" />
-                            Start
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        aria-label="Reset timer"
-                        disabled={running}
-                        onClick={() => setTime(0)}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    </Row>
-                  }
+                  format={formatTime}
                 />
+              </Card>
+              <Card pad="lg" className="flex flex-1 flex-col justify-center">
                 <Stepper
-                  label="Temp (°C)"
+                  label="Temp"
                   value={temp}
                   onChange={setTemp}
                   step={1}
@@ -248,8 +232,8 @@ function Session({ bean }: { bean: CoffeeBean }) {
                   max={100}
                   unit="°C"
                 />
-              </Stack>
-            </Card>
+              </Card>
+            </div>
           </div>
 
           <Field label="Result">
@@ -314,10 +298,20 @@ function Session({ bean }: { bean: CoffeeBean }) {
   )
 }
 
-function ratioTone(ratio: number | null): 'ember' | 'neutral' {
-  // A typical espresso lands roughly 1:1.5–1:3; flag the accent when we're in
-  // that window so a live pour tells you at a glance it's in range.
-  return ratio != null && ratio >= 1.5 && ratio <= 3 ? 'ember' : 'neutral'
+/** Espresso lands roughly 1:1.5–1:3; a pour-over runs much longer (up to ~1:17),
+ *  so treat anything from 1.5 up as "in a sensible brewing window" and accent it
+ *  so a live pour reads at a glance. */
+function ratioInRange(ratio: number | null): boolean {
+  return ratio != null && ratio >= 1.5 && ratio <= 18
+}
+
+/** Seconds as m:ss once we're past a minute (pour-overs run long), plain "Ns"
+ *  below that (an espresso shot). */
+function formatTime(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

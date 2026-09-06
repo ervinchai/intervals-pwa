@@ -88,7 +88,7 @@ export function Stepper({
           <span className="text-3xl font-semibold text-ink">
             {format ? format(value) : value}
           </span>
-          {unit && !format ? <span className="text-lg text-ink-dim">{unit}</span> : null}
+          {unit ? <span className="text-lg text-ink-dim">{unit}</span> : null}
         </div>
 
         <StepButton

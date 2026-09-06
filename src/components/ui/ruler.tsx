@@ -99,8 +99,8 @@ export function RulerSlider({
             key={i}
             aria-hidden
             className={cn(
-              'absolute bottom-5 w-px -translate-x-1/2',
-              t.isMajor ? 'h-7 bg-ink-faint' : 'h-3.5 bg-line',
+              'absolute bottom-5 -translate-x-1/2',
+              t.isMajor ? 'h-7 w-0.5 bg-ink' : 'h-3.5 w-px bg-ink-dim',
             )}
             style={{ left: `${t.pos}%` }}
           />
@@ -111,7 +111,7 @@ export function RulerSlider({
             <span
               key={`label-${t.v}`}
               aria-hidden
-              className="absolute bottom-0 -translate-x-1/2 text-[0.7rem] tabular-nums text-ink-faint"
+              className="absolute bottom-0 -translate-x-1/2 text-[0.7rem] tabular-nums text-ink-dim"
               style={{ left: `${t.pos}%` }}
             >
               {t.v.toFixed(0)}
