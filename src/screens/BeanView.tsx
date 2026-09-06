@@ -344,8 +344,8 @@ function LogBrewForm({
             {BREW_METHODS.map((m) => (
               <Button
                 key={m}
-                size="md"
-                variant={method === m ? 'primary' : 'secondary'}
+                size="sm"
+                variant={method === m ? 'select' : 'quiet'}
                 onClick={() => setMethod(m)}
               >
                 {m}
@@ -380,8 +380,8 @@ function LogBrewForm({
             {BREW_RESULTS.map((r) => (
               <Button
                 key={r}
-                size="md"
-                variant={result === r ? 'primary' : 'secondary'}
+                size="sm"
+                variant={result === r ? 'select' : 'quiet'}
                 onClick={() => setResult(result === r ? '' : r)}
               >
                 {r}

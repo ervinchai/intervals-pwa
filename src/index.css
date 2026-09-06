@@ -39,28 +39,31 @@
    value; the light overrides live in the base layer further down.
 --------------------------------------------------------------------------- */
 @theme {
-  /* Surfaces, from page-deep to raised */
-  --color-base: #100e0c;
-  --color-surface: #1a1613;
-  --color-raised: #241e1a;
-  --color-line: #362c25;
+  /* Surfaces, from page-deep to raised — a warmed espresso-brown stack rather
+     than neutral black, so raised cards read as roasted, not grey. */
+  --color-base: #16110d;
+  --color-surface: #201a15;
+  --color-raised: #2b231d;
+  --color-line: #3d3229;
   /* Idle/ambient screens paint on the extreme surface — true black on OLED for
      burn-in safety in dark, plain white in light. */
   --color-void: #000000;
 
-  /* Ink */
-  --color-ink: #f5efe8;
-  --color-ink-dim: #a89d92;
-  --color-ink-faint: #6b615a;
+  /* Ink — warm cream, never a clinical white */
+  --color-ink: #f2e9dd;
+  --color-ink-dim: #b0a08f;
+  --color-ink-faint: #6f6355;
 
-  /* Ember accent */
-  --color-ember: #f97316;
-  --color-ember-soft: #fbbf24;
-  --color-ember-deep: #c2410c;
+  /* Ember accent — a roasted caramel/amber, dialled back from the old safety
+     orange. Warm enough to read as coffee, calm enough to sit under it all day
+     and only step forward where it's earned (a CTA, a live selection). */
+  --color-ember: #d68a4c;
+  --color-ember-soft: #e6ab73;
+  --color-ember-deep: #b06a30;
 
-  /* Secondary accents */
-  --color-sage: #7fa88a;
-  --color-clay: #b4654a;
+  /* Secondary accents — semantic: sage = balanced/good, clay = bitter/over */
+  --color-sage: #8aa98f;
+  --color-clay: #c06b4d;
 
   /* Inter for everything functional; a high-contrast display serif for headings.
      The pairing keeps the warmth that stops this reading as generic SaaS, while
@@ -69,7 +72,11 @@
   --font-display: 'Instrument Serif', Georgia, 'Iowan Old Style', serif;
   --font-sans: 'Inter Variable', Inter, 'Avenir Next', system-ui, sans-serif;
 
-  --radius-card: 1rem;
+  /* Softer, more grown-up geometry — the old full-round pills and 16px cards
+     read as bubbly. Cards get a modest 10px; interactive controls a tighter
+     8px so buttons and inputs are calm rectangles, not lozenges. */
+  --radius-card: 0.625rem;
+  --radius-control: 0.5rem;
 
   /* Minimum comfortable touch target — the spec floor is 48px */
   --spacing-touch: 3rem;
@@ -94,22 +101,23 @@
     :root {
       color-scheme: light;
 
-      --color-base: #f3ede3;
-      --color-surface: #fbf8f3;
-      --color-raised: #ece3d6;
-      --color-line: #e2d8c9;
-      --color-void: #ffffff;
+      --color-base: #efe7d9;
+      --color-surface: #f8f2e8;
+      --color-raised: #e7ddcc;
+      --color-line: #ddd0bc;
+      --color-void: #fffdf8;
 
-      --color-ink: #241d17;
-      --color-ink-dim: #6f6459;
-      --color-ink-faint: #9c9084;
+      --color-ink: #2a2018;
+      --color-ink-dim: #6b5d4d;
+      --color-ink-faint: #9a8b78;
 
-      --color-ember: #ea580c;
-      --color-ember-soft: #d97706;
-      --color-ember-deep: #9a3412;
+      /* Deeper caramel so the accent holds contrast on warm paper */
+      --color-ember: #b5652f;
+      --color-ember-soft: #a6571f;
+      --color-ember-deep: #8a4519;
 
-      --color-sage: #4e7a5e;
-      --color-clay: #a24a30;
+      --color-sage: #557a5f;
+      --color-clay: #a2502f;
     }
   }
 

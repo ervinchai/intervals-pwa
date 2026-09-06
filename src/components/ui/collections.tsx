@@ -67,7 +67,7 @@ export function ChecklistItem({
   return (
     <label
       className={cn(
-        'flex min-h-touch cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5',
+        'flex min-h-touch cursor-pointer items-center gap-3 rounded-card px-2 py-1.5',
         'transition-colors duration-150 active:bg-raised',
         disabled && 'pointer-events-none opacity-40',
         className,

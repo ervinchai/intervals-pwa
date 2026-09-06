@@ -315,14 +315,14 @@ function RecipeSkeleton() {
       </Row>
 
       <Row gap="sm">
-        <Skeleton className="h-8 w-24 rounded-full" />
-        <Skeleton className="h-8 w-28 rounded-full" />
-        <Skeleton className="h-8 w-20 rounded-full" />
+        <Skeleton className="h-8 w-24 rounded-md" />
+        <Skeleton className="h-8 w-28 rounded-md" />
+        <Skeleton className="h-8 w-20 rounded-md" />
       </Row>
 
       <Row gap="sm">
-        <Skeleton className="h-12 w-24 rounded-full" />
-        <Skeleton className="h-12 w-24 rounded-full" />
+        <Skeleton className="h-12 w-24 rounded-control" />
+        <Skeleton className="h-12 w-24 rounded-control" />
       </Row>
 
       <div className="grid min-h-0 flex-1 grid-cols-5 gap-8">

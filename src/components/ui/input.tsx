@@ -13,7 +13,7 @@ export function Input({ className, type = 'text', ...props }: InputProps) {
     <input
       type={type}
       className={cn(
-        'min-h-touch w-full rounded-full border border-line bg-surface px-6',
+        'min-h-touch w-full rounded-control border border-line bg-surface px-4',
         'text-ink placeholder:text-ink-faint',
         'transition-colors duration-150',
         'focus:border-ember focus:outline-none',

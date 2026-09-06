@@ -238,7 +238,7 @@ export function Scan() {
               <SwitchCamera className="h-5 w-5" />
             </button>
             <div className="pointer-events-none absolute bottom-4 left-0 right-0 flex justify-center">
-              <span className="flex items-center gap-2 rounded-full bg-black/50 px-4 py-2 text-sm text-white">
+              <span className="flex items-center gap-2 rounded-md bg-black/50 px-4 py-2 text-sm text-white">
                 <ScanLine className="h-4 w-4" />
                 Point the camera at a Intervals QR code
               </span>

@@ -117,8 +117,8 @@ function CollectionSkeleton() {
               <SkeletonLine />
             </Heading>
             <Row gap="sm">
-              <Skeleton className="h-7 w-20 rounded-full" />
-              <Skeleton className="h-7 w-16 rounded-full" />
+              <Skeleton className="h-7 w-20 rounded-md" />
+              <Skeleton className="h-7 w-16 rounded-md" />
             </Row>
           </Card>
         ))}
