@@ -1,4 +1,4 @@
-import { MoveHorizontal } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 
 import { cn } from '@/lib/cn'
@@ -9,6 +9,10 @@ import { cn } from '@/lib/cn'
    an open-ended value like yield or brew time. Movement is relative — every
    `pxPerStep` pixels is one step — so it's precise regardless of the number's
    size, and it snaps to the step so you always land on a real value.
+
+   The chevrons flanking the number name the gesture: drag left to go down,
+   right to go up. The label sits at the top; `fill` centres the number in
+   whatever height it's given, for a card that holds a single value.
 --------------------------------------------------------------------------- */
 
 type ScrubberProps = {
@@ -25,6 +29,8 @@ type ScrubberProps = {
   unit?: string
   /** Pixels of drag per step. Lower is faster/coarser. */
   pxPerStep?: number
+  /** Fill the available height, centring the number under a pinned label. */
+  fill?: boolean
   className?: string
 }
 
@@ -38,6 +44,7 @@ export function Scrubber({
   format,
   unit,
   pxPerStep = 10,
+  fill,
   className,
 }: ScrubberProps) {
   // Where the drag began, so movement is measured from a fixed anchor rather
@@ -65,25 +72,36 @@ export function Scrubber({
     start.current = null
   }
 
-  return (
-    <div className={cn('flex flex-col gap-2', className)}>
-      <span className="text-sm text-ink-faint">{label}</span>
-      <div
-        role="slider"
-        aria-label={label}
-        aria-valuenow={value}
-        onPointerDown={handleDown}
-        onPointerMove={handleMove}
-        onPointerUp={handleUp}
-        onPointerCancel={handleUp}
-        className="flex cursor-ew-resize touch-none select-none items-baseline gap-1.5"
-      >
-        <span className="text-4xl font-semibold tabular-nums text-ink">
+  const readout = (
+    <div
+      role="slider"
+      aria-label={label}
+      aria-valuenow={value}
+      onPointerDown={handleDown}
+      onPointerMove={handleMove}
+      onPointerUp={handleUp}
+      onPointerCancel={handleUp}
+      className="flex cursor-ew-resize touch-none select-none items-center justify-center gap-2"
+    >
+      <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-ink-faint" />
+      <span className="flex items-baseline gap-1 tabular-nums">
+        <span className="text-4xl font-semibold text-ink">
           {format ? format(value) : value}
         </span>
         {unit ? <span className="text-xl text-ink-dim">{unit}</span> : null}
-        <MoveHorizontal className="ml-1 h-5 w-5 shrink-0 self-center text-ink-faint" />
-      </div>
+      </span>
+      <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink-faint" />
+    </div>
+  )
+
+  return (
+    <div className={cn('flex flex-col gap-2', fill && 'h-full', className)}>
+      <span className="text-sm text-ink-faint">{label}</span>
+      {fill ? (
+        <div className="flex flex-1 items-center justify-center">{readout}</div>
+      ) : (
+        readout
+      )}
     </div>
   )
 }

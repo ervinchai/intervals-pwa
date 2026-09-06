@@ -211,8 +211,9 @@ function Session({ bean }: { bean: CoffeeBean }) {
             {/* Time and temp — their own cards, stacked to match the dose/yield
                 column height. Temp carries over between sessions. */}
             <div className="flex flex-col gap-6">
-              <Card pad="lg" className="flex flex-1 flex-col justify-center">
+              <Card pad="lg" className="flex flex-1 flex-col">
                 <Scrubber
+                  fill
                   label="Time"
                   value={time}
                   onChange={setTime}
@@ -221,8 +222,9 @@ function Session({ bean }: { bean: CoffeeBean }) {
                   format={formatTime}
                 />
               </Card>
-              <Card pad="lg" className="flex flex-1 flex-col justify-center">
+              <Card pad="lg" className="flex flex-1 flex-col">
                 <Scrubber
+                  fill
                   label="Temp"
                   value={temp}
                   onChange={setTemp}
