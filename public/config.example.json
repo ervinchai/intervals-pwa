@@ -1,0 +1,12 @@
+{
+  "windmillBaseUrl": "https://windmill.example.com",
+  "windmillWorkspace": "intervals",
+  "windmillToken": "",
+  "haBaseUrl": "https://ha.example.com",
+  "haToken": "",
+  "activeScreenEntity": "input_text.active_screen",
+  "vapidPublicKey": "",
+  "idleTimeoutMinutes": 5,
+  "useMockData": true,
+  "mockOverrides": { "today": true, "recipes": false, "mealPlan": true }
+}

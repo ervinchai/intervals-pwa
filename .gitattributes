@@ -1,0 +1,5 @@
+# Deploys target Linux (Cloudflare Pages) — keep LF in the repo regardless of
+# the checkout platform.
+* text=auto eol=lf
+
+*.png binary

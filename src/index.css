@@ -1,0 +1,230 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Self-hosted fonts.
+   Declared by hand rather than importing Fontsource's CSS, which pulls in every
+   subset (cyrillic, greek, vietnamese…). Those would all land in the Workbox
+   precache for an English-only kitchen display. Pointing straight at the latin
+   files keeps the offline payload to ~72 KB.
+
+   No unicode-range: there is only one file per family, so there is nothing to
+   select between. Anything outside latin falls back to the system stack.
+--------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+    format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2')
+    format('woff2');
+}
+
+/* ---------------------------------------------------------------------------
+   Intervals theme — warm, ember-lit, deliberately not stock iOS.
+
+   Two skins, switched by the device's own light/dark preference (no in-app
+   toggle): the dark skin for the docked kitchen display at night, a warm-paper
+   light skin for daytime. The token *names* below are the whole contract —
+   every utility resolves `var(--color-*)`, so re-pointing these variables under
+   a `prefers-color-scheme` query reskins the entire app. Dark is the default
+   value; the light overrides live in the base layer further down.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Surfaces, from page-deep to raised */
+  --color-base: #100e0c;
+  --color-surface: #1a1613;
+  --color-raised: #241e1a;
+  --color-line: #362c25;
+  /* Idle/ambient screens paint on the extreme surface — true black on OLED for
+     burn-in safety in dark, plain white in light. */
+  --color-void: #000000;
+
+  /* Ink */
+  --color-ink: #f5efe8;
+  --color-ink-dim: #a89d92;
+  --color-ink-faint: #6b615a;
+
+  /* Ember accent */
+  --color-ember: #f97316;
+  --color-ember-soft: #fbbf24;
+  --color-ember-deep: #c2410c;
+
+  /* Secondary accents */
+  --color-sage: #7fa88a;
+  --color-clay: #b4654a;
+
+  /* Inter for everything functional; a high-contrast display serif for headings.
+     The pairing keeps the warmth that stops this reading as generic SaaS, while
+     the UI itself stays clean and legible at arm's length.
+     Swapping either line reskins the app — see README. */
+  --font-display: 'Instrument Serif', Georgia, 'Iowan Old Style', serif;
+  --font-sans: 'Inter Variable', Inter, 'Avenir Next', system-ui, sans-serif;
+
+  --radius-card: 1rem;
+
+  /* Minimum comfortable touch target — the spec floor is 48px */
+  --spacing-touch: 3rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* Safe-area insets, surfaced as usable custom properties */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Light skin — warm paper, not clinical white. Follows the device setting.
+     Cards sit lighter than the page (raised-by-light), pressed states go a
+     shade darker, and the accents deepen so they hold contrast on a pale
+     ground. Re-points the same tokens the dark skin defines above. */
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+
+      --color-base: #f3ede3;
+      --color-surface: #fbf8f3;
+      --color-raised: #ece3d6;
+      --color-line: #e2d8c9;
+      --color-void: #ffffff;
+
+      --color-ink: #241d17;
+      --color-ink-dim: #6f6459;
+      --color-ink-faint: #9c9084;
+
+      --color-ember: #ea580c;
+      --color-ember-soft: #d97706;
+      --color-ember-deep: #9a3412;
+
+      --color-sage: #4e7a5e;
+      --color-clay: #a24a30;
+    }
+  }
+
+  html,
+  body {
+    height: 100%;
+    /* The shell is a fixed dashboard, not a document — nothing at the page level
+       ever scrolls. Internal regions that need it opt in with overflow-y-auto. */
+    overflow: hidden;
+  }
+
+  /* Pin the app to the visual viewport. `height: 100%` alone leaves iOS
+     standalone a hair taller than the screen, which is what let the whole
+     dashboard drift up and down. Fixed + inset-0 nails it to the frame. */
+  #root {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background-color: var(--color-base);
+  }
+
+  body {
+    background-color: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Kiosk browser-isms: no rubber-band scroll, no long-press callout,
+       no grey tap flash, no text cursor, no double-tap zoom. */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Text entry still needs real selection behaviour. */
+  input,
+  textarea,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* iOS zooms the viewport when a focused field is under 16px. */
+  input,
+  textarea,
+  select {
+    font-size: max(1rem, 16px);
+  }
+
+  button {
+    /* Reset enough of the UA button that our own styles fully own it. */
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
+  /* Scrollbars are noise on a touch display. */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Skeleton placeholders.
+
+   A muted surface block with a single light sweep travelling across it. The
+   sweep is a pseudo-element so the base block still reads as content-shaped even
+   when motion is off — under prefers-reduced-motion the global rule above
+   freezes the animation and it degrades to a plain raised block, no flicker.
+   Tokenised, so it inverts with the light/dark skin like everything else.
+--------------------------------------------------------------------------- */
+@layer components {
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-raised);
+  }
+
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-ink) 8%, transparent),
+      transparent
+    );
+    animation: skeleton-sweep 1.5s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-sweep {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}

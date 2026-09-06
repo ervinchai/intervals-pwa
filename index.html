@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- viewport-fit=cover so the app paints into the iPad's safe-area insets -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+
+    <title>Intervals</title>
+    <meta name="description" content="Kitchen and life hub" />
+
+    <!-- Standalone / home-screen behaviour. apple-mobile-web-app-capable is still
+         required on iPadOS; mobile-web-app-capable is the standards-track name. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Intervals" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Chrome/status-bar tint per skin; the browser picks the matching one. -->
+    <meta name="theme-color" content="#100e0c" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f3ede3" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="light dark" />
+
+    <!-- Telephone/date/address auto-linking mangles recipe text; turn it off. -->
+    <meta name="format-detection" content="telephone=no,date=no,address=no,email=no" />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
