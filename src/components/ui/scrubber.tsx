@@ -48,8 +48,11 @@ export function Scrubber({
   className,
 }: ScrubberProps) {
   // Where the drag began, so movement is measured from a fixed anchor rather
-  // than accumulated (which would drift as the parent re-renders).
+  // than accumulated (which would drift as the parent re-renders). `moved`
+  // tells a scrub from a tap; `downDir` remembers which chevron a tap landed on.
   const start = useRef<{ x: number; value: number } | null>(null)
+  const moved = useRef(false)
+  const downDir = useRef<1 | -1 | null>(null)
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
   const snap = (v: number) => {
@@ -60,53 +63,52 @@ export function Scrubber({
   function handleDown(e: ReactPointerEvent<HTMLDivElement>) {
     e.currentTarget.setPointerCapture(e.pointerId)
     start.current = { x: e.clientX, value }
+    moved.current = false
+    const zone = (e.target as HTMLElement).closest('[data-nudge]')
+    downDir.current = zone ? (Number(zone.getAttribute('data-nudge')) as 1 | -1) : null
   }
 
   function handleMove(e: ReactPointerEvent<HTMLDivElement>) {
     if (e.buttons === 0 || !start.current) return
-    const steps = Math.round((e.clientX - start.current.x) / pxPerStep)
-    onChange(snap(start.current.value + steps * step))
+    const dx = e.clientX - start.current.x
+    if (Math.abs(dx) > 3) moved.current = true
+    const steps = Math.round(dx / pxPerStep)
+    if (steps !== 0) onChange(snap(start.current.value + steps * step))
   }
 
   function handleUp() {
+    // A tap (no real movement) on a chevron nudges one step.
+    if (!moved.current && downDir.current) onChange(snap(value + downDir.current * step))
     start.current = null
+    downDir.current = null
+    moved.current = false
   }
 
-  // Tapping a chevron nudges one step; the chevrons are buttons of their own so
-  // a tap never fights the drag gesture that lives on the number.
-  const nudge = (dir: 1 | -1) => onChange(snap(value + dir * step))
-
   const readout = (
-    <div className="flex items-center justify-center gap-4">
-      <ChevronButton
-        aria-label={`Decrease ${label}`}
-        onClick={() => nudge(-1)}
-      >
+    <div
+      role="slider"
+      aria-label={label}
+      aria-valuenow={value}
+      onPointerDown={handleDown}
+      onPointerMove={handleMove}
+      onPointerUp={handleUp}
+      onPointerCancel={handleUp}
+      className="flex w-full cursor-ew-resize touch-none select-none items-center justify-center gap-4"
+    >
+      <ChevronZone data-nudge={-1} aria-label={`Decrease ${label}`}>
         <ChevronLeft className="h-6 w-6" />
-      </ChevronButton>
+      </ChevronZone>
 
-      <span
-        role="slider"
-        aria-label={label}
-        aria-valuenow={value}
-        onPointerDown={handleDown}
-        onPointerMove={handleMove}
-        onPointerUp={handleUp}
-        onPointerCancel={handleUp}
-        className="flex cursor-ew-resize touch-none select-none items-baseline gap-1 tabular-nums"
-      >
+      <span className="flex items-baseline gap-1 tabular-nums">
         <span className="text-4xl font-semibold text-ink">
           {format ? format(value) : value}
         </span>
         {unit ? <span className="text-xl text-ink-dim">{unit}</span> : null}
       </span>
 
-      <ChevronButton
-        aria-label={`Increase ${label}`}
-        onClick={() => nudge(1)}
-      >
+      <ChevronZone data-nudge={1} aria-label={`Increase ${label}`}>
         <ChevronRight className="h-6 w-6" />
-      </ChevronButton>
+      </ChevronZone>
     </div>
   )
 
@@ -122,17 +124,19 @@ export function Scrubber({
   )
 }
 
-function ChevronButton({
+/** A chevron tap-zone inside the scrubber's drag surface. Not a <button> —
+ *  the row owns the pointer, and the parent reads `data-nudge` to tell which
+ *  side a tap landed on. Sized to a comfortable touch target. */
+function ChevronZone({
   className,
   ...props
-}: React.ComponentPropsWithoutRef<'button'>) {
+}: React.ComponentPropsWithoutRef<'span'>) {
   return (
-    <button
-      type="button"
+    <span
+      role="button"
       className={cn(
-        'flex h-11 w-11 shrink-0 touch-none select-none items-center justify-center rounded-full',
-        'text-ink-faint transition-colors duration-100 hover:text-ink active:bg-raised',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember',
+        'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
+        'text-ink-faint transition-colors duration-100 hover:text-ink',
         className,
       )}
       {...props}
