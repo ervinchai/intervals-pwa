@@ -15,6 +15,7 @@ import { useRouter, type Screen } from '@/app/router'
 import { Button, Spacer } from '@/components/ui'
 import { BeanView } from '@/screens/BeanView'
 import { Beans } from '@/screens/Beans'
+import { BrewSession } from '@/screens/BrewSession'
 import { Collection } from '@/screens/Collection'
 import { MealPlan } from '@/screens/MealPlan'
 import { Print } from '@/screens/Print'
@@ -97,6 +98,8 @@ function renderScreen(screen: Screen): ReactNode {
       return <Beans />
     case 'bean':
       return <BeanView beanId={screen.beanId} />
+    case 'brew':
+      return <BrewSession beanId={screen.beanId} />
     case 'settings':
       return <Settings />
     case 'scan':
@@ -110,6 +113,7 @@ function renderScreen(screen: Screen): ReactNode {
 function screenKey(screen: Screen): string {
   if (screen.name === 'recipe') return `recipe:${screen.recipeId}`
   if (screen.name === 'bean') return `bean:${screen.beanId}`
+  if (screen.name === 'brew') return `brew:${screen.beanId}`
   return screen.name
 }
 

@@ -7,7 +7,9 @@
  */
 export { Button } from './button'
 export { Checklist, ChecklistItem, List, ListItem, Step, Steps } from './collections'
+export { RulerSlider } from './ruler'
 export { Input } from './input'
+export { Stepper } from './stepper'
 export { Card, Grid, Page, Row, Spacer, Stack } from './layout'
 export { Skeleton, SkeletonLine, SkeletonText } from './skeleton'
 export { Badge, Heading, Image, Text } from './text'

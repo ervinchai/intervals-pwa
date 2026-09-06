@@ -17,6 +17,7 @@ export type Screen =
   | { name: 'recipe'; recipeId: string }
   | { name: 'beans' }
   | { name: 'bean'; beanId: string }
+  | { name: 'brew'; beanId: string }
   | { name: 'settings' }
   | { name: 'scan' }
   | { name: 'print' }
@@ -67,6 +68,8 @@ function screenFromParts(name: string, param: string): Screen | null {
       return { name: 'beans' }
     case 'bean':
       return param ? { name: 'bean', beanId: param } : null
+    case 'brew':
+      return param ? { name: 'brew', beanId: param } : null
     case 'settings':
       return { name: 'settings' }
     case 'scan':
@@ -103,6 +106,8 @@ export function screenToString(screen: Screen): string {
       return `recipe:${screen.recipeId}`
     case 'bean':
       return `bean:${screen.beanId}`
+    case 'brew':
+      return `brew:${screen.beanId}`
     default:
       return screen.name
   }
@@ -122,6 +127,8 @@ export function screenToPath(screen: Screen): string {
       return `/recipe/${encodeURIComponent(screen.recipeId)}`
     case 'bean':
       return `/bean/${encodeURIComponent(screen.beanId)}`
+    case 'brew':
+      return `/brew/${encodeURIComponent(screen.beanId)}`
     default:
       return `/${screen.name}`
   }

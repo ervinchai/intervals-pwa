@@ -19,6 +19,7 @@ function sameScreen(a: Screen, b: Screen): boolean {
   if (a.name !== b.name) return false
   if (a.name === 'recipe' && b.name === 'recipe') return a.recipeId === b.recipeId
   if (a.name === 'bean' && b.name === 'bean') return a.beanId === b.beanId
+  if (a.name === 'brew' && b.name === 'brew') return a.beanId === b.beanId
   return true
 }
 
