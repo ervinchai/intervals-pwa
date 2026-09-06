@@ -72,25 +72,41 @@ export function Scrubber({
     start.current = null
   }
 
+  // Tapping a chevron nudges one step; the chevrons are buttons of their own so
+  // a tap never fights the drag gesture that lives on the number.
+  const nudge = (dir: 1 | -1) => onChange(snap(value + dir * step))
+
   const readout = (
-    <div
-      role="slider"
-      aria-label={label}
-      aria-valuenow={value}
-      onPointerDown={handleDown}
-      onPointerMove={handleMove}
-      onPointerUp={handleUp}
-      onPointerCancel={handleUp}
-      className="flex cursor-ew-resize touch-none select-none items-center justify-center gap-2"
-    >
-      <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-ink-faint" />
-      <span className="flex items-baseline gap-1 tabular-nums">
+    <div className="flex items-center justify-center gap-4">
+      <ChevronButton
+        aria-label={`Decrease ${label}`}
+        onClick={() => nudge(-1)}
+      >
+        <ChevronLeft className="h-6 w-6" />
+      </ChevronButton>
+
+      <span
+        role="slider"
+        aria-label={label}
+        aria-valuenow={value}
+        onPointerDown={handleDown}
+        onPointerMove={handleMove}
+        onPointerUp={handleUp}
+        onPointerCancel={handleUp}
+        className="flex cursor-ew-resize touch-none select-none items-baseline gap-1 tabular-nums"
+      >
         <span className="text-4xl font-semibold text-ink">
           {format ? format(value) : value}
         </span>
         {unit ? <span className="text-xl text-ink-dim">{unit}</span> : null}
       </span>
-      <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink-faint" />
+
+      <ChevronButton
+        aria-label={`Increase ${label}`}
+        onClick={() => nudge(1)}
+      >
+        <ChevronRight className="h-6 w-6" />
+      </ChevronButton>
     </div>
   )
 
@@ -103,5 +119,23 @@ export function Scrubber({
         readout
       )}
     </div>
+  )
+}
+
+function ChevronButton({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<'button'>) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'flex h-11 w-11 shrink-0 touch-none select-none items-center justify-center rounded-full',
+        'text-ink-faint transition-colors duration-100 hover:text-ink active:bg-raised',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember',
+        className,
+      )}
+      {...props}
+    />
   )
 }
