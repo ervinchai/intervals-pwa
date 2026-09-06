@@ -10,7 +10,6 @@ import {
   PORTRAIT_HEIGHT,
   PORTRAIT_WIDTH,
   renderPortrait,
-  richTextToPlain,
   toPrintCanvas,
 } from '@/lib/label'
 
@@ -70,15 +69,14 @@ export function Print() {
     if (!canvas || !payload || printState === 'sending') return
     setPrintState('sending')
     const imageBase64 = canvasToBase64(toPrintCanvas(canvas))
-    const caption = richTextToPlain(htmlToRichText(captionHtml))
     try {
-      const { ok } = await printLabel({ imageBase64, caption, payload })
+      const { ok } = await printLabel({ imageBase64 })
       setPrintState(ok ? 'sent' : 'error')
     } catch {
       setPrintState('error')
     }
     window.setTimeout(() => setPrintState('idle'), PRINT_RESULT_MS)
-  }, [payload, captionHtml, printState])
+  }, [payload, printState])
 
   return (
     <Stack gap="lg" className="h-full">
