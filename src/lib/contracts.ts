@@ -158,22 +158,22 @@ export const CoffeeBeanSummarySchema = z.object({
   roastDateLabel: z.string().optional(),
   status: z.string().optional(),
   rating: z.number().optional(),
+  process: z.string().optional(),
+  weightG: z.number().optional(),
+  /** The current dialed-in brew — grind / dose / yield / time as one line. */
+  targetRecipe: z.string().optional(),
 })
 
 /** Full bean detail, including its brew-log history. */
 export const CoffeeBeanSchema = CoffeeBeanSummarySchema.extend({
   region: z.string().optional(),
   producer: z.string().optional(),
-  process: z.string().optional(),
   varietal: z.string().optional(),
   altitude: z.string().optional(),
   purchaseDateLabel: z.string().optional(),
-  weightG: z.number().optional(),
   price: z.number().optional(),
   tastingNotes: z.string().optional(),
   brewMethods: z.array(z.string()).default([]),
-  /** The current dialed-in brew — grind / dose / yield / time as one line. */
-  targetRecipe: z.string().optional(),
   brews: z.array(BrewLogEntrySchema).default([]),
 })
 

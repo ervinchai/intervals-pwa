@@ -16,7 +16,7 @@ import {
   Stack,
   Text,
 } from '@/components/ui'
-import type { BrewLogEntry, BrewResult, CoffeeBean } from '@/lib/contracts'
+import type { BrewLogEntry, BrewResult } from '@/lib/contracts'
 import { fetchCoffeeBean } from '@/lib/data'
 import { beanLabel } from '@/lib/labels'
 import { daysOffRoast, freshness, parseTarget } from '@/lib/coffee-utils'
