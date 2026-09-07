@@ -40,6 +40,15 @@ export function PrintStatusPopup({
       {open && (
         <motion.div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-8"
+          // Bleed the dim past the layout-viewport bottom into the iOS
+          // home-indicator safe area, then pad the content back off it. In
+          // standalone a `bottom: 0` fixed element resolves to the layout
+          // viewport, which stops short of the physical screen by the bottom
+          // inset — leaving an un-dimmed strip once the home indicator shows.
+          style={{
+            bottom: 'calc(-1 * env(safe-area-inset-bottom))',
+            paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
+          }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

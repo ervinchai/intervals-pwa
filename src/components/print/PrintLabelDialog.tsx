@@ -69,6 +69,14 @@ export function PrintLabelDialog({
         {open && (
           <motion.div
             className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-8"
+            // Bleed the dim past the layout-viewport bottom into the iOS
+            // home-indicator safe area, then pad the content back off it — a
+            // plain `bottom: 0` fixed element stops short of the physical screen
+            // in standalone, leaving an un-dimmed strip. See PrintStatusPopup.
+            style={{
+              bottom: 'calc(-1 * env(safe-area-inset-bottom))',
+              paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

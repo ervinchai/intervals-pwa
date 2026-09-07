@@ -55,10 +55,12 @@ function Shell({ devBadge }: { devBadge: boolean }) {
 
   return (
     <div
-      // h-dvh, not h-full: a percentage height doesn't reliably resolve against
-      // the fixed #root in iOS standalone. The dynamic viewport unit pins the
-      // shell to the real screen height.
-      className="flex h-dvh w-full overflow-hidden bg-base pt-2 text-ink"
+      // absolute inset-0, not h-dvh: #root is `position: fixed; inset: 0`, so it
+      // is the containing block for an absolute child and gives it an exact,
+      // stable height. `dvh` recomputes live during iOS scroll/rubber-band
+      // gestures, which made the shell shrink then snap back; pinning to #root
+      // avoids that jitter (and the fragile height:100% ancestor chain).
+      className="absolute inset-0 flex w-full overflow-hidden bg-base pt-2 text-ink"
     >
       <NavRail devBadge={devBadge} />
 
