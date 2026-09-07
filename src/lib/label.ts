@@ -39,10 +39,10 @@ const QR_TOP = 0
 const QR_SIZE = PORTRAIT_WIDTH - SIDE_PAD * 2 // full-width QR
 // Gap between the QR and the caption. Tightened from the original 28 so the text
 // sits closer to the code.
-const CAPTION_GAP = 12
-const CAPTION_FONT_PX = 26
-const CAPTION_LINE_PX = 32
-const CAPTION_MAX_LINES = 7
+const CAPTION_GAP = 10
+const CAPTION_FONT_PX = 24
+const CAPTION_LINE_PX = 28
+const CAPTION_MAX_LINES = 8
 // Underline thickness and how far below the text top it sits, in px.
 const UNDERLINE_PX = 2
 const UNDERLINE_OFFSET = CAPTION_FONT_PX + 1
