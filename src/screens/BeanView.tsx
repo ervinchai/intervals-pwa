@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus, Printer, Star, Timer } from 'lucide-react'
+import { ArrowLeft, Coffee, Plus, Printer } from 'lucide-react'
 import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
@@ -19,13 +19,11 @@ import {
 import type { BrewLogEntry, BrewResult, CoffeeBean } from '@/lib/contracts'
 import { fetchCoffeeBean } from '@/lib/data'
 import { beanLabel } from '@/lib/labels'
+import { daysOffRoast, freshness, parseTarget } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
-/**
- * Bean detail — reached from the catalog grid or by scanning the jar's QR
- * (`intervals://bean/<id>`). Shows the catalog facts, the current dialed-in
- * target, and the brew-log history, with a form to log the next shot.
- */
+const LOG_COLS = '52px 58px 58px 58px 54px 52px 50px minmax(0,1fr)'
+
 export function BeanView({ beanId }: { beanId: string }) {
   const { back, canGoBack, navigate } = useRouter()
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
@@ -38,220 +36,257 @@ export function BeanView({ beanId }: { beanId: string }) {
       errorLabel="That bean would not load"
       skeleton={<BeanSkeleton />}
     >
-      {(data) => (
-        <Stack gap="lg" className="h-full">
-          <Row gap="md">
-            {canGoBack ? (
-              <Button variant="ghost" size="icon" aria-label="Back" onClick={back}>
-                <ArrowLeft className="h-6 w-6" />
+      {(data) => {
+        const target = parseTarget(data.targetRecipe)
+        const days = daysOffRoast(data.roastDateLabel)
+        const fresh = freshness(days)
+        const last = data.brews.length > 0 ? data.brews[data.brews.length - 1] : null
+
+        return (
+          <Stack gap="lg" className="h-full min-h-0 overflow-hidden">
+            <Row gap="md">
+              {canGoBack ? (
+                <Button variant="ghost" size="icon" aria-label="Back" onClick={back}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              ) : null}
+              <Stack gap="none" className="min-w-0">
+                <Heading role="hero" level={1} className="min-w-0">
+                  {data.name}
+                </Heading>
+                <Text size="sm" tone="dim">
+                  {data.roaster} · {data.id} · {data.status}
+                </Text>
+              </Stack>
+              <Spacer />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Print label"
+                onClick={() => setPrinting(true)}
+              >
+                <Printer className="h-5 w-5" />
               </Button>
-            ) : null}
-            <Stack gap="xs" className="min-w-0">
-              <Heading role="hero" level={1} className="min-w-0">
-                {data.name}
-              </Heading>
-              {data.roaster ? <Text tone="dim">{data.roaster}</Text> : null}
-            </Stack>
-            <Spacer />
-            <Text tone="faint">{data.id}</Text>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Print label"
-              onClick={() => setPrinting(true)}
-            >
-              <Printer className="h-6 w-6" />
-            </Button>
-          </Row>
+            </Row>
 
-          <PrintLabelDialog
-            label={beanLabel(data)}
-            open={printing}
-            onClose={() => setPrinting(false)}
-          />
+            <PrintLabelDialog
+              label={beanLabel(data)}
+              open={printing}
+              onClose={() => setPrinting(false)}
+            />
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-1">
-                <BeanFacts bean={data} />
-              </div>
-              <div className="col-span-2">
-                <BrewLog
-                  bean={data}
-                  onAdd={() => navigate({ name: 'brew', beanId: data.id })}
-                />
-              </div>
+            <Card pad="md">
+              <Row gap="xl">
+                {target ? (
+                  <>
+                    <Stack gap="none">
+                      <Text size="xs" tone="faint">Target</Text>
+                      <Row gap="md" align="baseline">
+                        {Object.entries({
+                          grind: target.grind,
+                          in: target.dose,
+                          out: target.yield,
+                          time: target.time,
+                        }).map(([k, v]) => (
+                          <Row key={k} gap="xs" align="baseline">
+                            <span className="text-[1.75rem] font-semibold tabular-nums text-ember">
+                              {String(v).replace(/[a-z]+$/i, '')}
+                            </span>
+                            <Text size="xs" tone="faint">{k}</Text>
+                          </Row>
+                        ))}
+                      </Row>
+                    </Stack>
+                    <div className="w-px self-stretch bg-line" />
+                  </>
+                ) : null}
+
+                <Stack gap="none">
+                  <Text size="xs" tone="faint">Freshness</Text>
+                  <Row gap="sm" align="baseline">
+                    <span
+                      className="text-[1.75rem] font-semibold tabular-nums"
+                      style={{
+                        color:
+                          fresh.tone === 'clay'
+                            ? 'var(--color-clay)'
+                            : fresh.tone === 'sage'
+                              ? 'var(--color-sage)'
+                              : 'var(--color-ink)',
+                      }}
+                    >
+                      {days != null ? days : '—'}
+                    </span>
+                    <Text size="xs" tone="faint">
+                      days off roast {fresh.note ? `· ${fresh.note}` : ''}
+                    </Text>
+                  </Row>
+                </Stack>
+
+                <Spacer />
+                {last ? <Badge tone={resultTone(last.result)}>Last: {last.result}</Badge> : null}
+                <Button onClick={() => navigate({ name: 'brew', beanId: data.id })}>
+                  <Coffee className="mr-1.5 h-[18px] w-[18px]" />Dial in
+                </Button>
+              </Row>
+            </Card>
+
+            <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_268px] gap-5">
+              <Stack gap="sm" className="min-h-0">
+                <Row>
+                  <Heading role="section">Brew log</Heading>
+                  <Text size="xs" tone="faint" className="ml-2">
+                    {data.brews.length} shots · newest last
+                  </Text>
+                  <Spacer />
+                  <Button
+                    variant="quiet"
+                    size="sm"
+                    onClick={() => navigate({ name: 'brew', beanId: data.id })}
+                  >
+                    <Plus className="mr-1 h-4 w-4" />Log a shot
+                  </Button>
+                </Row>
+                <Card pad="none" className="min-h-0 flex-1 overflow-y-auto pt-3">
+                  {data.brews.length === 0 ? (
+                    <Stack gap="sm" align="start" className="p-[14px]">
+                      <Text size="sm" tone="faint">No brews logged yet. Dial one in.</Text>
+                      <Button size="sm" onClick={() => navigate({ name: 'brew', beanId: data.id })}>
+                        Dial in
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <>
+                      <LogHead />
+                      {data.brews.map((b, i) => (
+                        <LogRow
+                          key={b.id}
+                          brew={b}
+                          isLatest={i === data.brews.length - 1}
+                        />
+                      ))}
+                    </>
+                  )}
+                </Card>
+              </Stack>
+
+              <Stack gap="lg" className="min-h-0 overflow-y-auto pr-2">
+                <FactGroup title="Provenance">
+                  <Fact label="Origin" value={data.origin} />
+                  <Fact label="Region" value={data.region} />
+                  <Fact label="Producer" value={data.producer} />
+                  <Fact label="Varietal" value={data.varietal} />
+                  <Fact label="Altitude" value={data.altitude} />
+                  <Fact label="Process" value={data.process} />
+                </FactGroup>
+
+                <FactGroup title="This bag">
+                  <Fact label="Roast" value={data.roastLevel} />
+                  <Fact label="Roasted" value={data.roastDateLabel} />
+                  <Fact label="Bought" value={data.purchaseDateLabel} />
+                  <Fact label="Weight" value={data.weightG ? `${data.weightG} g` : undefined} />
+                  <Fact label="Price" value={data.price ? `£${data.price}` : undefined} />
+                  <Fact label="Rating" value={data.rating ? `${data.rating}/5` : undefined} />
+                </FactGroup>
+
+                <FactGroup title="In the cup">
+                  {data.tastingNotes ? <Text size="sm" tone="dim">{data.tastingNotes}</Text> : null}
+                  <Row gap="sm" className="mt-1 flex-wrap">
+                    {data.brewMethods?.map((m) => <Badge key={m}>{m}</Badge>)}
+                  </Row>
+                </FactGroup>
+              </Stack>
             </div>
-          </div>
-        </Stack>
-      )}
+          </Stack>
+        )
+      }}
     </AsyncScreen>
   )
 }
 
-function BeanFacts({ bean }: { bean: CoffeeBean }) {
+function FactGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Stack gap="md">
-      <Row gap="sm" className="flex-wrap">
-        {bean.roastLevel ? <Badge tone="ember">{bean.roastLevel}</Badge> : null}
-        {bean.process ? <Badge>{bean.process}</Badge> : null}
-        {bean.status ? <Badge>{bean.status}</Badge> : null}
-        {bean.rating ? (
-          <Badge>
-            <Star className="mr-1 h-3.5 w-3.5" />
-            {bean.rating}
-          </Badge>
-        ) : null}
-      </Row>
-
-      {bean.targetRecipe ? (
-        <Card pad="sm">
-          <Stack gap="xs">
-            <Text size="xs" tone="faint">
-              Target recipe
-            </Text>
-            <Text tone="ember">{bean.targetRecipe}</Text>
-          </Stack>
-        </Card>
-      ) : null}
-
-      <Stack gap="xs">
-        <Fact label="Origin" value={bean.origin} />
-        <Fact label="Region" value={bean.region} />
-        <Fact label="Producer" value={bean.producer} />
-        <Fact label="Varietal" value={bean.varietal} />
-        <Fact label="Altitude" value={bean.altitude} />
-        <Fact label="Roasted" value={bean.roastDateLabel} />
-        <Fact label="Bought" value={bean.purchaseDateLabel} />
-        <Fact label="Weight" value={bean.weightG ? `${bean.weightG} g` : undefined} />
-        <Fact label="Notes" value={bean.tastingNotes} />
-      </Stack>
+    <Stack gap="sm">
+      <Heading role="label" as="span" tone="faint">{title}</Heading>
+      <Stack gap="xs">{children}</Stack>
     </Stack>
   )
 }
 
-function Fact({ label, value }: { label: string; value?: string }) {
+function Fact({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
-    <Row gap="sm" align="start">
-      <Text size="sm" tone="faint" className="w-20 shrink-0">
-        {label}
-      </Text>
-      <Text size="sm" className="min-w-0">
-        {value}
-      </Text>
-    </Row>
+    <div className="grid grid-cols-[68px_minmax(0,1fr)] items-baseline gap-[10px]">
+      <Text size="xs" tone="faint">{label}</Text>
+      <Text size="sm">{value}</Text>
+    </div>
   )
 }
 
-function BrewLog({ bean, onAdd }: { bean: CoffeeBean; onAdd: () => void }) {
+function LogHead() {
   return (
-    <Stack gap="md">
-      <Row>
-        <Heading role="section">Brew log</Heading>
-        <Spacer />
-        <Button size="icon" aria-label="Log a shot" onClick={onAdd}>
-          <Plus className="h-6 w-6" />
-        </Button>
-      </Row>
-
-      {bean.brews.length === 0 ? (
-        <Text tone="faint">No brews logged yet. Dial one in.</Text>
-      ) : (
-        <Stack gap="sm">
-          {bean.brews.map((brew) => (
-            <BrewRow key={brew.id} brew={brew} />
-          ))}
-        </Stack>
-      )}
-    </Stack>
+    <div
+      className="grid gap-[10px] border-b border-line px-[14px] pb-1.5"
+      style={{ gridTemplateColumns: LOG_COLS }}
+    >
+      {['Grind', 'Dose', 'Yield', 'Ratio', 'Time', 'Temp', 'Rating', 'Result'].map((h) => (
+        <Text key={h} size="xs" tone="faint" className="font-semibold uppercase tracking-[0.08em]">{h}</Text>
+      ))}
+    </div>
   )
 }
 
-function BrewRow({ brew }: { brew: BrewLogEntry }) {
+function LogRow({ brew, isLatest }: { brew: BrewLogEntry; isLatest: boolean }) {
+  const cell = 'font-sans text-[0.9375rem] tabular-nums text-ink'
   return (
-    <Card pad="sm">
-      <Stack gap="xs">
-        <Row gap="sm" className="flex-wrap">
-          <Badge tone="ember">{brew.method}</Badge>
-          {brew.result ? <Badge tone={resultTone(brew.result)}>{brew.result}</Badge> : null}
-          <Spacer />
-          <Text size="sm" tone="faint">
-            {brew.dateLabel}
-          </Text>
+    <div
+      className="border-b border-line px-[14px] py-2.5"
+      style={{
+        background: isLatest
+          ? 'color-mix(in srgb, var(--color-ember) 12%, transparent)'
+          : 'transparent',
+      }}
+    >
+      <div className="grid items-center gap-[10px]" style={{ gridTemplateColumns: LOG_COLS }}>
+        <span className={cell}>{brew.grind}</span>
+        <span className={cell}>{brew.doseG}<span className="text-ink-faint">g</span></span>
+        <span className={cell}>{brew.yieldG}<span className="text-ink-faint">g</span></span>
+        <span className={`${cell} font-semibold text-ember`}>1:{brew.ratio}</span>
+        <span className={cell}>{brew.timeS}<span className="text-ink-faint">s</span></span>
+        <span className={cell}>{brew.waterTempC}<span className="text-ink-faint">°</span></span>
+        <span className={cell}>{brew.rating}<span className="text-ink-faint">/5</span></span>
+        <Row gap="sm" justify="between">
+          <Badge tone={resultTone(brew.result)}>{brew.result}</Badge>
+          <Text size="xs" tone="faint">{brew.dateLabel}</Text>
         </Row>
-
-        <Row gap="md" className="flex-wrap">
-          {brew.grind ? <Metric label="Grind" value={brew.grind} /> : null}
-          {brew.doseG != null ? <Metric label="Dose" value={`${brew.doseG}g`} /> : null}
-          {brew.yieldG != null ? <Metric label="Yield" value={`${brew.yieldG}g`} /> : null}
-          {brew.ratio != null ? <Metric label="Ratio" value={`1:${brew.ratio}`} /> : null}
-          {brew.timeS != null ? (
-            <Metric label="Time" value={`${brew.timeS}s`} icon={<Timer className="h-3.5 w-3.5" />} />
-          ) : null}
-          {brew.waterTempC != null ? <Metric label="Temp" value={`${brew.waterTempC}°C`} /> : null}
-          {brew.rating != null ? (
-            <Metric label="Rating" value={`${brew.rating}`} icon={<Star className="h-3.5 w-3.5" />} />
-          ) : null}
-        </Row>
-
-        {brew.adjustment ? (
-          <Text size="sm" tone="dim">
-            → {brew.adjustment}
-          </Text>
-        ) : null}
-        {brew.notes ? (
-          <Text size="sm" tone="faint">
-            {brew.notes}
-          </Text>
-        ) : null}
-      </Stack>
-    </Card>
+      </div>
+      {brew.adjustment ? (
+        <Text size="sm" tone="dim" className="mt-1">→ {brew.adjustment}</Text>
+      ) : null}
+    </div>
   )
 }
 
-function Metric({
-  label,
-  value,
-  icon,
-}: {
-  label: string
-  value: string
-  icon?: React.ReactNode
-}) {
-  return (
-    <Stack gap="xs">
-      <Text size="xs" tone="faint">
-        {label}
-      </Text>
-      <Row gap="xs" align="center">
-        {icon}
-        <Text size="sm">{value}</Text>
-      </Row>
-    </Stack>
-  )
-}
-
-function resultTone(result: BrewResult): 'sage' | 'clay' | 'neutral' {
+function resultTone(result: BrewResult | undefined): 'sage' | 'clay' | 'neutral' {
   if (result === 'Balanced') return 'sage'
   if (result === 'Bitter / Over') return 'clay'
-  return 'neutral' // Sour / Under
+  return 'neutral'
 }
 
 function BeanSkeleton() {
   return (
-    <Stack gap="lg" className="h-full">
+    <Stack gap="lg" className="h-full min-h-0 overflow-hidden">
       <Row gap="md">
         <Heading role="hero" level={1} className="w-64">
           <SkeletonLine />
         </Heading>
       </Row>
-      <div className="grid grid-cols-3 gap-6">
-        <Skeleton className="col-span-1 aspect-[3/2] rounded-card" />
-        <Stack gap="sm" className="col-span-2">
-          <Skeleton className="h-24 rounded-card" />
-          <Skeleton className="h-24 rounded-card" />
-        </Stack>
+      <Card pad="md">
+        <Skeleton className="h-[4.5rem]" />
+      </Card>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_268px] gap-5">
+        <Skeleton className="h-full rounded-card" />
+        <Skeleton className="h-full rounded-card" />
       </div>
     </Stack>
   )

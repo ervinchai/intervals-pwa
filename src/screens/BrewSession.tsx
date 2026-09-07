@@ -8,31 +8,23 @@ import {
   Card,
   Heading,
   Input,
-  RulerSlider,
   Row,
+  RulerSlider,
+  Scrubber,
   Spacer,
   Stack,
-  Scrubber,
   Text,
 } from '@/components/ui'
-import { cn } from '@/lib/cn'
 import type { BrewLogInput, BrewResult, CoffeeBean } from '@/lib/contracts'
 import { fetchCoffeeBean, logBrew } from '@/lib/data'
+import { parseTarget } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
 const BREW_METHODS = ['Espresso', 'V60', 'AeroPress', 'French Press', 'Moka', 'Cold Brew'] as const
 const BREW_RESULTS: BrewResult[] = ['Sour / Under', 'Balanced', 'Bitter / Over']
 
-// Water temp carries over between shots — the machine's set point rarely moves,
-// so the last value you dialled is the right default next time.
 const TEMP_KEY = 'intervals:brew:lastTempC'
 
-/**
- * A live dial-in session on its own screen. Reached from the bean's `+`. The
- * point is to brew *with* it open — turn the grind collar, scrub dose, yield,
- * time and temp — and have the ratio and everything else move in real time,
- * then save the shot you actually pulled.
- */
 export function BrewSession({ beanId }: { beanId: string }) {
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
 
@@ -47,29 +39,24 @@ export function BrewSession({ beanId }: { beanId: string }) {
   )
 }
 
-/** Pulls the first number out of a target-recipe token like " 18g in ". */
-function firstNumber(token: string | undefined): number | undefined {
-  const m = token?.match(/-?\d+(\.\d+)?/)
+function num(t: string | null | undefined): number | undefined {
+  const m = (t ?? '').match(/-?\d+(\.\d+)?/)
   return m ? Number(m[0]) : undefined
-}
-
-function readLastTemp(): number {
-  const stored = Number(localStorage.getItem(TEMP_KEY))
-  return Number.isFinite(stored) && stored > 0 ? stored : 93
 }
 
 function Session({ bean }: { bean: CoffeeBean }) {
   const { back } = useRouter()
+  const target = parseTarget(bean.targetRecipe)
 
-  // Seed the controls from the bean's dialed-in target
-  // ("2.5 · 18g in · 38g out · 28s"), falling back to sane espresso numbers.
-  const target = (bean.targetRecipe ?? '').split('·').map((s) => s.trim())
-  const [method, setMethod] = useState<string>(bean.brewMethods[0] ?? 'Espresso')
-  const [grind, setGrind] = useState(firstNumber(target[0]) ?? 3)
-  const [dose, setDose] = useState(firstNumber(target[1]) ?? 18)
-  const [yieldG, setYieldG] = useState(firstNumber(target[2]) ?? 36)
-  const [time, setTime] = useState(firstNumber(target[3]) ?? 30)
-  const [temp, setTemp] = useState(readLastTemp)
+  const [method, setMethod] = useState<string>(bean.brewMethods?.[0] ?? 'Espresso')
+  const [grind, setGrind] = useState(num(target?.grind) ?? 3)
+  const [dose, setDose] = useState(num(target?.dose) ?? 18)
+  const [yieldG, setYieldG] = useState(num(target?.yield) ?? 36)
+  const [time, setTime] = useState(num(target?.time) ?? 30)
+
+  const lastTemp = parseInt(localStorage.getItem(TEMP_KEY) ?? '93', 10)
+  const [temp, setTemp] = useState(isNaN(lastTemp) ? 93 : lastTemp)
+
   const [result, setResult] = useState<BrewResult | ''>('')
   const [rating, setRating] = useState(0)
   const [adjustment, setAdjustment] = useState('')
@@ -78,13 +65,20 @@ function Session({ bean }: { bean: CoffeeBean }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const ratio = dose > 0 ? Math.round((yieldG / dose) * 10) / 10 : null
-
-  // Espresso is dialled in grams and single seconds; a pour-over like the V60
-  // runs long and gets nudged coarser, so key the scrub steps off the method.
   const espresso = method === 'Espresso'
-  const yieldStep = espresso ? 0.5 : 5
-  const timeStep = espresso ? 1 : 5
+  const ratio = dose > 0 ? Math.round((yieldG / dose) * 10) / 10 : null
+  const inRange = ratio != null && ratio >= 1.5 && ratio <= 18
+
+  const targetDose = num(target?.dose)
+  const targetYield = num(target?.yield)
+  const targetRatio =
+    targetDose && targetDose > 0 && targetYield
+      ? Math.round((targetYield / targetDose) * 10) / 10
+      : null
+  const drift =
+    targetRatio != null && ratio != null
+      ? Math.round((ratio - targetRatio) * 10) / 10
+      : null
 
   async function submit() {
     setSaving(true)
@@ -113,130 +107,124 @@ function Session({ bean }: { bean: CoffeeBean }) {
   }
 
   return (
-    <Stack gap="lg" className="h-full">
+    <Stack gap="lg" className="h-full min-h-0 overflow-hidden">
+      {/* Header */}
       <Row gap="md">
         <Button variant="ghost" size="icon" aria-label="Back" onClick={back}>
-          <ArrowLeft className="h-6 w-6" />
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-        <Stack gap="xs" className="min-w-0">
-          <Heading role="title" className="min-w-0">
-            Dial in
-          </Heading>
-          <Text tone="dim">{bean.name}</Text>
+        <Stack gap="none" className="min-w-0">
+          <Heading role="title">Dial in</Heading>
+          <Text size="sm" tone="dim">
+            {bean.name} · {bean.roaster}
+          </Text>
         </Stack>
         <Spacer />
-        {bean.targetRecipe ? (
-          <Stack gap="xs" align="end" className="hidden sm:flex">
-            <Text size="xs" tone="faint">
-              Target
-            </Text>
-            <Text tone="ember">{bean.targetRecipe}</Text>
-          </Stack>
-        ) : null}
+        <Stack gap="none" align="end">
+          <Text size="xs" tone="faint">
+            Target {bean.targetRecipe}
+          </Text>
+          <Row gap="sm" align="baseline">
+            <span
+              className="text-[2.5rem] font-semibold leading-none tabular-nums"
+              style={{ color: inRange ? 'var(--color-ember)' : 'var(--color-ink)' }}
+            >
+              {ratio != null ? `1:${ratio.toFixed(1)}` : '—'}
+            </span>
+            {drift != null && drift !== 0 ? (
+              <Text
+                size="sm"
+                tone={Math.abs(drift) <= 0.2 ? 'faint' : 'default'}
+                className="tabular-nums"
+                style={{ color: Math.abs(drift) > 0.2 ? 'var(--color-clay)' : undefined }}
+              >
+                {drift > 0 ? '+' : ''}{drift.toFixed(1)} vs target
+              </Text>
+            ) : (
+              <Text size="sm" tone="sage">
+                on target
+              </Text>
+            )}
+          </Row>
+        </Stack>
       </Row>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Band 1 - Live Controls */}
+      <Card pad="md">
+        <Stack gap="md">
+          <Row gap="sm" className="flex-wrap">
+            {BREW_METHODS.map((m) => (
+              <Button
+                key={m}
+                size="sm"
+                variant={method === m ? 'select' : 'quiet'}
+                onClick={() => setMethod(m)}
+              >
+                {m}
+              </Button>
+            ))}
+          </Row>
+          <RulerSlider
+            label="Grind — drag like the collar"
+            value={grind}
+            onChange={setGrind}
+            min={0}
+            max={16}
+            step={0.1}
+            minorUntil={4}
+          />
+        </Stack>
+      </Card>
+
+      <div className="grid grid-cols-4 gap-3.5">
+        <Card pad="md">
+          <Scrubber
+            label="Dose"
+            value={dose}
+            onChange={setDose}
+            min={0}
+            step={0.1}
+            format={(v) => v.toFixed(1)}
+            unit="g"
+          />
+        </Card>
+        <Card pad="md">
+          <Scrubber
+            label="Yield"
+            value={yieldG}
+            onChange={setYieldG}
+            min={0}
+            step={espresso ? 0.5 : 5}
+            format={(v) => v.toFixed(espresso ? 1 : 0)}
+            unit="g"
+          />
+        </Card>
+        <Card pad="md">
+          <Scrubber
+            label="Time"
+            value={time}
+            onChange={setTime}
+            step={espresso ? 1 : 5}
+            min={0}
+            format={formatTime}
+          />
+        </Card>
+        <Card pad="md">
+          <Scrubber
+            label="Temp"
+            value={temp}
+            onChange={setTemp}
+            step={1}
+            min={70}
+            max={100}
+            unit="°C"
+          />
+        </Card>
+      </div>
+
+      {/* Band 2 - Filled in after */}
+      <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-5 overflow-y-auto pr-2">
         <Stack gap="lg">
-          <Field label="Method">
-            <Row gap="sm" className="flex-wrap">
-              {BREW_METHODS.map((m) => (
-                <Button
-                  key={m}
-                  size="sm"
-                  variant={method === m ? 'select' : 'quiet'}
-                  onClick={() => setMethod(m)}
-                >
-                  {m}
-                </Button>
-              ))}
-            </Row>
-          </Field>
-
-          {/* Grind collar — a ruler you drag like the grinder's markings */}
-          <Card pad="lg">
-            <RulerSlider
-              label="Grind"
-              value={grind}
-              onChange={setGrind}
-              min={0}
-              max={16}
-              step={0.1}
-              minorUntil={4}
-            />
-          </Card>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
-            {/* Dose · yield · ratio */}
-            <Card pad="lg">
-              <Stack gap="lg" className="h-full">
-                <Scrubber
-                  label="Dose"
-                  value={dose}
-                  onChange={setDose}
-                  min={0}
-                  step={0.1}
-                  format={(v) => v.toFixed(1)}
-                  unit="g"
-                />
-                <Scrubber
-                  label="Yield"
-                  value={yieldG}
-                  onChange={setYieldG}
-                  min={0}
-                  step={yieldStep}
-                  format={(v) => v.toFixed(espresso ? 1 : 0)}
-                  unit="g"
-                />
-                <Spacer />
-                <Row
-                  align="baseline"
-                  justify="between"
-                  className="border-t border-line pt-4"
-                >
-                  <Text size="sm" tone="faint">
-                    Ratio
-                  </Text>
-                  <span
-                    className={cn(
-                      'text-3xl font-semibold tabular-nums',
-                      ratioInRange(ratio) ? 'text-ember' : 'text-ink',
-                    )}
-                  >
-                    {ratio != null ? `1:${ratio.toFixed(1)}` : '—'}
-                  </span>
-                </Row>
-              </Stack>
-            </Card>
-
-            {/* Time and temp — their own cards, stacked to match the dose/yield
-                column height. Temp carries over between sessions. */}
-            <div className="flex flex-col gap-6">
-              <Card pad="lg" className="flex flex-1 flex-col">
-                <Scrubber
-                  fill
-                  label="Time"
-                  value={time}
-                  onChange={setTime}
-                  step={timeStep}
-                  min={0}
-                  format={formatTime}
-                />
-              </Card>
-              <Card pad="lg" className="flex flex-1 flex-col">
-                <Scrubber
-                  fill
-                  label="Temp"
-                  value={temp}
-                  onChange={setTemp}
-                  step={1}
-                  min={70}
-                  max={100}
-                  unit="°C"
-                />
-              </Card>
-            </div>
-          </div>
-
           <Field label="Result">
             <Row gap="sm" className="flex-wrap">
               {BREW_RESULTS.map((r) => (
@@ -251,22 +239,24 @@ function Session({ bean }: { bean: CoffeeBean }) {
               ))}
             </Row>
           </Field>
-
-          <Field label="Rating">
-            <Row gap="sm" className="flex-wrap">
+          <Field label="Rating" hint="out of five">
+            <Row gap="sm">
               {[1, 2, 3, 4, 5].map((n) => (
                 <Button
                   key={n}
                   size="sm"
-                  variant={rating === n ? 'select' : 'quiet'}
+                  variant={rating >= n && rating > 0 ? 'select' : 'quiet'}
                   onClick={() => setRating(rating === n ? 0 : n)}
+                  className="min-w-10 px-0"
                 >
                   {n}
                 </Button>
               ))}
             </Row>
           </Field>
+        </Stack>
 
+        <Stack gap="lg">
           <Field label="Adjustment for next time">
             <Input
               value={adjustment}
@@ -274,7 +264,6 @@ function Session({ bean }: { bean: CoffeeBean }) {
               placeholder="Grind finer, aim ~30s"
             />
           </Field>
-
           <Field label="Notes">
             <Input
               value={notes}
@@ -282,32 +271,28 @@ function Session({ bean }: { bean: CoffeeBean }) {
               placeholder="Anything else"
             />
           </Field>
-
-          {error ? <Text tone="ember">{error}</Text> : null}
         </Stack>
       </div>
 
-      <Row gap="sm">
+      {error ? <Text tone="ember">{error}</Text> : null}
+
+      {/* Footer */}
+      <Row gap="sm" className="shrink-0 border-t border-line pt-3">
         <Button variant="primary" onClick={submit} disabled={saving}>
           {saving ? 'Saving…' : 'Save brew'}
         </Button>
         <Button variant="ghost" onClick={back} disabled={saving}>
           Cancel
         </Button>
+        <Spacer />
+        <Text size="xs" tone="faint">
+          {method} · {grind.toFixed(1)} · {dose.toFixed(1)}g in · {yieldG}g out · {formatTime(time)} · {temp}°C
+        </Text>
       </Row>
     </Stack>
   )
 }
 
-/** Espresso lands roughly 1:1.5–1:3; a pour-over runs much longer (up to ~1:17),
- *  so treat anything from 1.5 up as "in a sensible brewing window" and accent it
- *  so a live pour reads at a glance. */
-function ratioInRange(ratio: number | null): boolean {
-  return ratio != null && ratio >= 1.5 && ratio <= 18
-}
-
-/** Seconds as m:ss once we're past a minute (pour-overs run long), plain "Ns"
- *  below that (an espresso shot). */
 function formatTime(totalSeconds: number): string {
   if (totalSeconds < 60) return `${totalSeconds}s`
   const m = Math.floor(totalSeconds / 60)
@@ -315,12 +300,23 @@ function formatTime(totalSeconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
   return (
     <Stack gap="xs">
-      <Text size="sm" tone="faint">
-        {label}
-      </Text>
+      <Row gap="sm" align="baseline">
+        <Heading role="label" as="span" tone="faint">
+          {label}
+        </Heading>
+        {hint ? <Text size="xs" tone="faint">{hint}</Text> : null}
+      </Row>
       {children}
     </Stack>
   )

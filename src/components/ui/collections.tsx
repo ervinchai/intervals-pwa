@@ -78,14 +78,14 @@ export function ChecklistItem({
         onCheckedChange={(value) => onCheckedChange(value === true)}
         disabled={disabled}
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 border-line',
+          'flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 border-line',
           'transition-colors duration-150',
           'data-[state=checked]:border-sage data-[state=checked]:bg-sage',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember',
         )}
       >
         <Checkbox.Indicator>
-          <Check className="h-5 w-5 text-base" strokeWidth={3} />
+          <Check className="h-4 w-4 text-base" strokeWidth={3} />
         </Checkbox.Indicator>
       </Checkbox.Root>
 
@@ -113,7 +113,7 @@ type StepsProps = ComponentPropsWithoutRef<'ol'>
 
 /** Numbered instruction list. */
 export function Steps({ className, ...props }: StepsProps) {
-  return <ol className={cn('flex flex-col gap-6', className)} {...props} />
+  return <ol className={cn('flex flex-col gap-[18px]', className)} {...props} />
 }
 
 type StepProps = ComponentPropsWithoutRef<'li'> & {
@@ -126,10 +126,10 @@ type StepProps = ComponentPropsWithoutRef<'li'> & {
 
 export function Step({ className, index, done, active, children, ...props }: StepProps) {
   return (
-    <li className={cn('flex gap-4', className)} {...props}>
+    <li className={cn('flex gap-3.5', className)} {...props}>
       <span
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+          'flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full',
           // Sans here, not the display serif: a 400-weight serif numeral inside a
           // small disc reads thin and loses its punch at a glance.
           'text-base font-medium tabular-nums transition-colors duration-200',

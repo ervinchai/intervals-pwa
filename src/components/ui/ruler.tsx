@@ -78,7 +78,7 @@ export function RulerSlider({
     <div className={cn('flex flex-col gap-3', className)}>
       <div className="flex items-baseline justify-between">
         <span className="text-sm text-ink-faint">{label}</span>
-        <span className="text-4xl font-semibold tabular-nums text-ink">
+        <span className="text-[1.75rem] font-semibold tabular-nums text-ink">
           {value.toFixed(precision)}
         </span>
       </div>
@@ -92,15 +92,15 @@ export function RulerSlider({
         aria-valuenow={value}
         onPointerDown={handleDown}
         onPointerMove={handleMove}
-        className="relative h-16 w-full cursor-ew-resize touch-none select-none"
+        className="relative h-12 w-full cursor-ew-resize touch-none select-none"
       >
         {ticks.map((t, i) => (
           <span
             key={i}
             aria-hidden
             className={cn(
-              'absolute bottom-5 -translate-x-1/2',
-              t.isMajor ? 'h-7 w-0.5 bg-ink' : 'h-3.5 w-px bg-ink-dim',
+              'absolute bottom-4 -translate-x-1/2',
+              t.isMajor ? 'h-[22px] w-0.5 bg-ink' : 'h-[11px] w-px bg-ink-dim',
             )}
             style={{ left: `${t.pos}%` }}
           />
@@ -121,7 +121,7 @@ export function RulerSlider({
         {/* Value marker */}
         <span
           aria-hidden
-          className="absolute top-0 bottom-4 w-1 -translate-x-1/2 rounded-full bg-ember"
+          className="absolute top-0 bottom-[13px] w-1 -translate-x-1/2 rounded-full bg-ember"
           style={{ left: `${frac * 100}%` }}
         />
       </div>

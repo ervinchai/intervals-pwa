@@ -31,3 +31,4 @@ public/config.json
 dev-dist
 public/sw.js
 public/workbox-*.js
+.claude/design

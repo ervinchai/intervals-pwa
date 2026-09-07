@@ -12,7 +12,7 @@ const button = cva(
   // No scale on press — the button holds its size and darkens instead, which
   // reads as a solid physical control rather than something that flinches away
   // from the finger. Feedback is a per-variant press colour, applied fast.
-  'inline-flex items-center justify-center gap-3 rounded-control font-sans font-medium ' +
+  'inline-flex items-center justify-center gap-2.5 rounded-control font-sans font-medium ' +
     'select-none transition-[background-color,color,border-color,opacity] duration-150 ease-out ' +
     'disabled:pointer-events-none disabled:opacity-40 ' +
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember',
@@ -33,10 +33,10 @@ const button = cva(
       size: {
         /** Form controls and segmented pickers — near the touch floor without
          *  the arm's-length inflation of `md`. */
-        sm: 'min-h-11 px-4 text-base',
-        md: 'min-h-touch px-6 text-lg',
-        lg: 'min-h-14 px-8 text-xl',
-        xl: 'min-h-16 px-10 text-2xl',
+        sm: 'min-h-9  px-3 text-[0.8125rem]',
+        md: 'min-h-touch px-[18px] text-[0.9375rem]',
+        lg: 'min-h-12 px-6 text-base',
+        xl: 'min-h-14 px-8 text-[1.25rem]',
         /** Square icon-only button, still 48px. */
         icon: 'min-h-touch min-w-touch p-0',
       },

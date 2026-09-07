@@ -20,7 +20,7 @@ export function Toggle({ className, label, id, ...props }: ToggleProps) {
     <Switch.Root
       id={switchId}
       className={cn(
-        'relative h-8 w-14 shrink-0 rounded-full border border-line bg-raised',
+        'relative h-7 w-12 shrink-0 rounded-full border border-line bg-raised',
         'transition-colors duration-200 data-[state=checked]:border-ember data-[state=checked]:bg-ember',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember',
         'disabled:opacity-40',
@@ -30,9 +30,9 @@ export function Toggle({ className, label, id, ...props }: ToggleProps) {
     >
       <Switch.Thumb
         className={cn(
-          'block h-6 w-6 translate-x-1 rounded-full bg-ink shadow-sm',
+          'block h-5 w-5 translate-x-[3px] rounded-full bg-ink shadow-sm',
           'transition-transform duration-200 will-change-transform',
-          'data-[state=checked]:translate-x-7 data-[state=checked]:bg-base',
+          'data-[state=checked]:translate-x-[25px] data-[state=checked]:bg-base',
         )}
       />
     </Switch.Root>
@@ -45,7 +45,7 @@ export function Toggle({ className, label, id, ...props }: ToggleProps) {
       htmlFor={switchId}
       className={cn(
         'flex min-h-touch cursor-pointer items-center justify-between gap-4',
-        'rounded-card px-2 text-xl text-ink active:bg-raised',
+        'rounded-card px-2 text-base text-ink active:bg-raised',
         className,
       )}
     >

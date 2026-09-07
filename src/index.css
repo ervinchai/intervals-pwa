@@ -79,7 +79,7 @@
   --radius-control: 0.5rem;
 
   /* Minimum comfortable touch target — the spec floor is 48px */
-  --spacing-touch: 3rem;
+  --spacing-touch: 2.75rem; /* 44px — platform floor, was 48 */
 }
 
 @layer base {

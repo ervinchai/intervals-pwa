@@ -1,15 +1,12 @@
-import { Plus, Star } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { useRouter } from '@/app/router'
 import { AsyncScreen } from '@/components/ScreenState'
 import {
-  Badge,
   Button,
   Card,
-  Grid,
   Heading,
   Row,
-  Skeleton,
   SkeletonLine,
   Spacer,
   Stack,
@@ -17,12 +14,11 @@ import {
 } from '@/components/ui'
 import type { CoffeeBeanSummary } from '@/lib/contracts'
 import { fetchCoffeeCollection } from '@/lib/data'
+import { daysOffRoast, freshness, parseTarget } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
 /**
- * The coffee-bean catalog — every bag as a tappable card. Selecting one opens
- * the same `BeanView` the QR scanner routes to, so a scanned jar and a tapped
- * card land on one screen.
+ * The coffee-bean catalog — every bag as an aligned row.
  */
 export function Beans() {
   const { navigate } = useRouter()
@@ -35,91 +31,165 @@ export function Beans() {
       errorLabel="The beans would not load"
       skeleton={<BeansSkeleton />}
     >
-      {({ beans }) => (
-        <Stack gap="lg" className="h-full">
-          <Row>
-            <Heading role="hero" level={1}>
-              Coffee
-            </Heading>
-            <Spacer />
-            <Button size="icon" aria-label="New bean" onClick={() => navigate({ name: 'new-bean' })}>
-              <Plus className="h-6 w-6" />
-            </Button>
-          </Row>
+      {({ beans }) => {
+        const open = beans.filter((b) => b.status === 'Open')
+        const rest = beans.filter((b) => b.status !== 'Open')
 
-          {beans.length === 0 ? (
-            <Stack gap="md" align="start">
-              <Text tone="faint">No beans catalogued yet.</Text>
-              <Button variant="primary" onClick={() => navigate({ name: 'new-bean' })}>
-                Add a bean
+        return (
+          <Stack gap="lg" className="h-full">
+            <Row>
+              <Heading role="hero" level={1}>
+                Coffee
+              </Heading>
+              <Spacer />
+              <Text size="sm" tone="faint">
+                {beans.length} bags · {open.length} open
+              </Text>
+              <Button
+                size="icon"
+                aria-label="New bean"
+                onClick={() => navigate({ name: 'new-bean' })}
+              >
+                <Plus className="h-5 w-5" />
               </Button>
-            </Stack>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <Grid cols={3} gap="lg">
-                {beans.map((bean) => (
-                  <BeanCard
-                    key={bean.id}
-                    bean={bean}
-                    onPick={() => navigate({ name: 'bean', beanId: bean.id })}
-                  />
-                ))}
-              </Grid>
-            </div>
-          )}
-        </Stack>
-      )}
+            </Row>
+
+            {beans.length === 0 ? (
+              <Stack gap="md" align="start">
+                <Text tone="faint">No beans catalogued yet.</Text>
+                <Button variant="primary" onClick={() => navigate({ name: 'new-bean' })}>
+                  Add a bean
+                </Button>
+              </Stack>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <Stack gap="lg">
+                  {open.length > 0 ? (
+                    <Stack gap="sm">
+                      <Row gap="sm" className="px-[14px]">
+                        <Heading role="label" as="span" tone="faint">
+                          Open
+                        </Heading>
+                        <div className="h-px flex-1 bg-line" />
+                      </Row>
+                      <Stack gap="sm">
+                        {open.map((b) => (
+                          <BeanRow
+                            key={b.id}
+                            bean={b}
+                            onPick={() => navigate({ name: 'bean', beanId: b.id })}
+                          />
+                        ))}
+                      </Stack>
+                    </Stack>
+                  ) : null}
+
+                  {rest.length > 0 ? (
+                    <Stack gap="sm">
+                      <Row gap="sm" className="px-[14px]">
+                        <Heading role="label" as="span" tone="faint">
+                          Finished
+                        </Heading>
+                        <div className="h-px flex-1 bg-line" />
+                      </Row>
+                      <Stack gap="sm">
+                        {rest.map((b) => (
+                          <BeanRow
+                            key={b.id}
+                            bean={b}
+                            onPick={() => navigate({ name: 'bean', beanId: b.id })}
+                          />
+                        ))}
+                      </Stack>
+                    </Stack>
+                  ) : null}
+                </Stack>
+              </div>
+            )}
+          </Stack>
+        )
+      }}
     </AsyncScreen>
   )
 }
 
-function BeanCard({
+function BeanRow({
   bean,
   onPick,
 }: {
   bean: CoffeeBeanSummary
   onPick: () => void
 }) {
+  const days = daysOffRoast(bean.roastDateLabel)
+  const fresh = freshness(days)
+  const target = parseTarget(bean.targetRecipe)
+
   return (
     <Card
       as="button"
       interactive
-      pad="sm"
-      className="flex flex-col gap-3"
+      pad="none"
       onClick={onPick}
+      className="block w-full px-[14px] py-3"
     >
-      <Stack gap="xs" className="min-w-0">
-        <Heading role="section" className="min-w-0">
-          {bean.name}
-        </Heading>
-        {bean.roaster ? (
-          <Text size="sm" tone="dim">
-            {bean.roaster}
+      <div className="grid grid-cols-[minmax(0,1fr)_132px_150px] items-center gap-4">
+        <Stack gap="none" className="min-w-0">
+          <Heading
+            role="section"
+            className="overflow-hidden text-ellipsis whitespace-nowrap"
+          >
+            {bean.name}
+          </Heading>
+          <Text
+            size="sm"
+            tone="dim"
+            className="overflow-hidden text-ellipsis whitespace-nowrap"
+          >
+            {bean.roaster} · {bean.origin} · {bean.process}
           </Text>
-        ) : null}
-      </Stack>
+        </Stack>
 
-      <Row gap="sm" className="flex-wrap">
-        {bean.roastLevel ? <Badge tone="ember">{bean.roastLevel}</Badge> : null}
-        {bean.origin ? <Badge>{bean.origin}</Badge> : null}
-        {bean.rating ? (
-          <Badge>
-            <Star className="mr-1 h-3.5 w-3.5" />
-            {bean.rating}
-          </Badge>
-        ) : null}
-      </Row>
+        <Stack gap="none">
+          <Text
+            size="sm"
+            tone={
+              fresh.tone === 'sage'
+                ? 'sage'
+                : fresh.tone === 'clay'
+                  ? 'default'
+                  : 'dim'
+            }
+            className="tabular-nums"
+            style={
+              fresh.tone === 'clay' ? { color: 'var(--color-clay)' } : undefined
+            }
+          >
+            {fresh.text}
+          </Text>
+          <Text size="xs" tone="faint">
+            {bean.roastLevel} · {bean.weightG} g
+          </Text>
+        </Stack>
 
-      {bean.roastDateLabel ? (
-        <Text size="sm" tone="faint">
-          Roasted {bean.roastDateLabel}
-        </Text>
-      ) : null}
+        {target ? (
+          <Stack gap="none" align="end">
+            <Text size="sm" tone="ember" className="tabular-nums">
+              {target.grind} · {target.dose} · {target.yield}
+            </Text>
+            <Text size="xs" tone="faint">
+              dialled in · {target.time}
+            </Text>
+          </Stack>
+        ) : (
+          <Text size="sm" tone="faint" className="text-right">
+            not dialled in
+          </Text>
+        )}
+      </div>
     </Card>
   )
 }
 
-/** Loading placeholder matching the loaded 3-column grid. */
 function BeansSkeleton() {
   return (
     <Stack gap="lg" className="h-full">
@@ -129,19 +199,30 @@ function BeansSkeleton() {
         </Heading>
       </Row>
 
-      <Grid cols={3} gap="lg" className="min-h-0">
-        {Array.from({ length: 6 }, (_, i) => (
-          <Card key={i} pad="sm" className="flex flex-col gap-3">
-            <Heading role="section" className="w-3/4">
-              <SkeletonLine />
-            </Heading>
-            <Row gap="sm">
-              <Skeleton className="h-7 w-20 rounded-md" />
-              <Skeleton className="h-7 w-16 rounded-md" />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <Stack gap="lg">
+          <Stack gap="sm">
+            <Row gap="sm" className="px-[14px]">
+              <Heading role="label" as="span" tone="faint">
+                Open
+              </Heading>
+              <div className="h-px flex-1 bg-line" />
             </Row>
-          </Card>
-        ))}
-      </Grid>
+            <Stack gap="sm">
+              {Array.from({ length: 3 }, (_, i) => (
+                <Card key={i} pad="none" className="block w-full px-[14px] py-3">
+                  <div className="grid grid-cols-[minmax(0,1fr)_132px_150px] items-center gap-4">
+                    <Stack gap="xs">
+                      <SkeletonLine className="h-5 w-40" />
+                      <SkeletonLine className="h-4 w-32" />
+                    </Stack>
+                  </div>
+                </Card>
+              ))}
+            </Stack>
+          </Stack>
+        </Stack>
+      </div>
     </Stack>
   )
 }

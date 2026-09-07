@@ -11,15 +11,15 @@ const GAP = {
   xs: 'gap-1',
   sm: 'gap-2',
   md: 'gap-3',
-  lg: 'gap-4',
-  xl: 'gap-6',
+  lg: 'gap-3.5',
+  xl: 'gap-5',
 } as const
 
 const PAD = {
   none: '',
-  sm: 'p-3',
-  md: 'p-4',
-  lg: 'p-6',
+  sm: 'p-2.5',
+  md: 'p-3.5',
+  lg: 'p-[18px]',
 } as const
 
 export type Gap = keyof typeof GAP

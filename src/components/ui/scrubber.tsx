@@ -93,21 +93,21 @@ export function Scrubber({
       onPointerMove={handleMove}
       onPointerUp={handleUp}
       onPointerCancel={handleUp}
-      className="flex w-full cursor-ew-resize touch-none select-none items-center justify-center gap-4"
+      className="flex w-full cursor-ew-resize touch-none select-none items-center justify-center gap-3"
     >
       <ChevronZone data-nudge={-1} aria-label={`Decrease ${label}`}>
-        <ChevronLeft className="h-6 w-6" />
+        <ChevronLeft className="h-5 w-5" />
       </ChevronZone>
 
       <span className="flex items-baseline gap-1 tabular-nums">
-        <span className="text-4xl font-semibold text-ink">
+        <span className="text-[1.75rem] font-semibold text-ink">
           {format ? format(value) : value}
         </span>
-        {unit ? <span className="text-xl text-ink-dim">{unit}</span> : null}
+        {unit ? <span className="text-base text-ink-dim">{unit}</span> : null}
       </span>
 
       <ChevronZone data-nudge={1} aria-label={`Increase ${label}`}>
-        <ChevronRight className="h-6 w-6" />
+        <ChevronRight className="h-5 w-5" />
       </ChevronZone>
     </div>
   )
@@ -135,7 +135,7 @@ function ChevronZone({
     <span
       role="button"
       className={cn(
-        'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
         'text-ink-faint transition-colors duration-100 hover:text-ink',
         className,
       )}

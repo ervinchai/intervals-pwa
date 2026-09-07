@@ -19,15 +19,15 @@ import { cn } from '@/lib/cn'
  */
 const HEADING_ROLE = {
   /** Screen title. One per screen. */
-  hero: 'font-display font-normal text-[2.5rem] leading-[1.05] tracking-[-0.02em]',
+  hero: 'font-display font-normal text-[2rem]      leading-[1.05] tracking-[-0.02em]',
   /** Subject of the screen — a recipe name, a large readout. */
-  display: 'font-display font-normal text-[2rem] leading-[1.1] tracking-[-0.015em]',
+  display: 'font-display font-normal text-[1.625rem]  leading-[1.1]  tracking-[-0.015em]',
   /** Below a hero, above sections. */
-  title: 'font-display font-normal text-[1.5rem] leading-[1.15] tracking-[-0.01em]',
+  title: 'font-display font-normal text-[1.25rem]   leading-[1.15] tracking-[-0.01em]',
   /** Card and section headings. Sans, and outranks body by weight. */
-  section: 'font-sans font-semibold text-xl leading-snug tracking-[-0.01em]',
+  section: 'font-sans font-semibold text-[1.0625rem]  leading-[1.35] tracking-[-0.01em]',
   /** Micro label above content — meal slots, group names, weekdays. */
-  label: 'font-sans font-semibold text-xs uppercase leading-none tracking-[0.12em]',
+  label: 'font-sans font-semibold text-[0.6875rem] uppercase leading-none tracking-[0.12em]',
 } as const
 
 const HEADING_TONE = {
@@ -70,10 +70,10 @@ export function Heading({
 }
 
 const TEXT_SIZE = {
-  lg: 'text-lg',
-  md: 'text-base',
-  sm: 'text-sm',
-  xs: 'text-xs',
+  lg: 'text-base',
+  md: 'text-[0.9375rem]',
+  sm: 'text-[0.8125rem]',
+  xs: 'text-[0.6875rem]',
 } as const
 
 const TEXT_TONE = {
@@ -105,7 +105,7 @@ export function Text({
   const Tag = inline ? 'span' : 'p'
   return (
     <Tag
-      className={cn('leading-relaxed', TEXT_SIZE[size], TEXT_TONE[tone], className)}
+      className={cn('leading-normal', TEXT_SIZE[size], TEXT_TONE[tone], className)}
       {...props}
     />
   )
