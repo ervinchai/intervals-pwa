@@ -19,10 +19,10 @@ const button = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-ember text-base hover:bg-ember-soft active:bg-ember-deep',
+        primary: 'bg-ember text-ember-text hover:bg-ember-soft active:bg-ember-deep',
         secondary: 'bg-raised text-ink border border-line hover:bg-line active:bg-line',
         ghost: 'bg-transparent text-ink-dim hover:text-ink active:bg-raised',
-        danger: 'bg-clay text-ink hover:opacity-90 active:brightness-90',
+        danger: 'bg-clay text-clay-text hover:opacity-90 active:brightness-90',
         /** Chosen option in a segmented picker — a quiet ember tint, not a
          *  solid fill, so a row of them doesn't shout. */
         select: 'bg-ember/12 text-ember border border-ember/45 active:bg-ember/20',

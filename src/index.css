@@ -60,10 +60,12 @@
   --color-ember: #d68a4c;
   --color-ember-soft: #e6ab73;
   --color-ember-deep: #b06a30;
+  --color-ember-text: #16110d;
 
   /* Secondary accents — semantic: sage = balanced/good, clay = bitter/over */
   --color-sage: #8aa98f;
   --color-clay: #c06b4d;
+  --color-clay-text: #16110d;
 
   /* Inter for everything functional; a high-contrast display serif for headings.
      The pairing keeps the warmth that stops this reading as generic SaaS, while
@@ -115,9 +117,11 @@
       --color-ember: #b5652f;
       --color-ember-soft: #a6571f;
       --color-ember-deep: #8a4519;
+      --color-ember-text: #fffdf8;
 
       --color-sage: #557a5f;
       --color-clay: #a2502f;
+      --color-clay-text: #fffdf8;
     }
   }
 
