@@ -1,13 +1,13 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { cn } from '@/lib/cn'
 
 /* ---------------------------------------------------------------------------
-   Ruler slider — a horizontal tick scale you drag like a caliper or the collar
-   markings on a grinder. Minor ticks every step, taller labelled ticks at each
-   major interval, and an ember marker at the current value. Drag anywhere on
-   the track; the pointer's x maps straight to the value. Tokenised, so it
-   reskins with everything else.
+   Ruler slider — combines a scrubber readout with a visual collar ruler.
+   The value is adjusted via the scrubber effect (relative horizontal dragging
+   and flanking chevrons for single-step nudges), while the ruler beneath
+   serves as a visual gauge to indicate the current value across the scale.
 --------------------------------------------------------------------------- */
 
 type RulerSliderProps = {
@@ -25,6 +25,8 @@ type RulerSliderProps = {
   minorUntil?: number
   /** Digits after the decimal in the readout. */
   precision?: number
+  /** Pixels of drag per step. Lower is faster/coarser. */
+  pxPerStep?: number
   className?: string
 }
 
@@ -33,14 +35,17 @@ export function RulerSlider({
   value,
   onChange,
   min = 0,
-  max = 10,
+  max = 16,
   step = 0.1,
   major = 1,
   minorUntil,
   precision = 1,
+  pxPerStep = 10,
   className,
 }: RulerSliderProps) {
-  const trackRef = useRef<HTMLDivElement>(null)
+  const start = useRef<{ x: number; value: number } | null>(null)
+  const moved = useRef(false)
+  const downDir = useRef<1 | -1 | null>(null)
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
   const snap = (v: number) => {
@@ -49,22 +54,27 @@ export function RulerSlider({
   }
   const frac = max > min ? (clamp(value) - min) / (max - min) : 0
 
-  function valueFromPointer(e: ReactPointerEvent<HTMLDivElement>) {
-    const el = trackRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
-    onChange(snap(min + f * (max - min)))
-  }
-
   function handleDown(e: ReactPointerEvent<HTMLDivElement>) {
     e.currentTarget.setPointerCapture(e.pointerId)
-    valueFromPointer(e)
+    start.current = { x: e.clientX, value }
+    moved.current = false
+    const zone = (e.target as HTMLElement).closest('[data-nudge]')
+    downDir.current = zone ? (Number(zone.getAttribute('data-nudge')) as 1 | -1) : null
   }
 
   function handleMove(e: ReactPointerEvent<HTMLDivElement>) {
-    if (e.buttons === 0) return
-    valueFromPointer(e)
+    if (e.buttons === 0 || !start.current) return
+    const dx = e.clientX - start.current.x
+    if (Math.abs(dx) > 3) moved.current = true
+    const steps = Math.round(dx / pxPerStep)
+    if (steps !== 0) onChange(snap(start.current.value + steps * step))
+  }
+
+  function handleUp() {
+    if (!moved.current && downDir.current) onChange(snap(value + downDir.current * step))
+    start.current = null
+    downDir.current = null
+    moved.current = false
   }
 
   const count = Math.max(1, Math.round((max - min) / step))
@@ -75,16 +85,10 @@ export function RulerSlider({
   }).filter((t) => t.isMajor || minorUntil == null || t.v <= minorUntil + 1e-6)
 
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm text-ink-faint">{label}</span>
-        <span className="text-[1.75rem] font-semibold tabular-nums text-ink">
-          {value.toFixed(precision)}
-        </span>
-      </div>
+    <div className={cn('flex flex-col gap-2', className)}>
+      <span className="text-sm text-ink-faint">{label}</span>
 
       <div
-        ref={trackRef}
         role="slider"
         aria-label={label}
         aria-valuemin={min}
@@ -92,38 +96,68 @@ export function RulerSlider({
         aria-valuenow={value}
         onPointerDown={handleDown}
         onPointerMove={handleMove}
-        className="relative h-12 w-full cursor-ew-resize touch-none select-none"
+        onPointerUp={handleUp}
+        onPointerCancel={handleUp}
+        className="flex flex-col gap-2 cursor-ew-resize touch-none select-none"
       >
-        {ticks.map((t, i) => (
+        {/* Scrubber readout with nudging chevrons */}
+        <div className="flex items-center justify-center gap-3">
           <span
-            key={i}
-            aria-hidden
-            className={cn(
-              'absolute bottom-4 -translate-x-1/2',
-              t.isMajor ? 'h-[22px] w-0.5 bg-ink' : 'h-[11px] w-px bg-ink-dim',
-            )}
-            style={{ left: `${t.pos}%` }}
-          />
-        ))}
-        {ticks
-          .filter((t) => t.isMajor)
-          .map((t) => (
-            <span
-              key={`label-${t.v}`}
-              aria-hidden
-              className="absolute bottom-0 -translate-x-1/2 text-[0.7rem] tabular-nums text-ink-dim"
-              style={{ left: `${t.pos}%` }}
-            >
-              {t.v.toFixed(0)}
-            </span>
-          ))}
+            data-nudge={-1}
+            role="button"
+            aria-label={`Decrease ${label}`}
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-faint transition-colors duration-100 hover:text-ink"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </span>
 
-        {/* Value marker */}
-        <span
+          <span className="text-[1.75rem] font-semibold tabular-nums text-ink">
+            {value.toFixed(precision)}
+          </span>
+
+          <span
+            data-nudge={1}
+            role="button"
+            aria-label={`Increase ${label}`}
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-faint transition-colors duration-100 hover:text-ink"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </span>
+        </div>
+
+        {/* Ruler — visual indicator to show the current value */}
+        <div
           aria-hidden
-          className="absolute top-0 bottom-[13px] w-1 -translate-x-1/2 rounded-full bg-ember"
-          style={{ left: `${frac * 100}%` }}
-        />
+          className="relative h-12 w-full pointer-events-none select-none"
+        >
+          {ticks.map((t, i) => (
+            <span
+              key={i}
+              className={cn(
+                'absolute bottom-4 -translate-x-1/2',
+                t.isMajor ? 'h-[22px] w-0.5 bg-ink' : 'h-[11px] w-px bg-ink-dim',
+              )}
+              style={{ left: `${t.pos}%` }}
+            />
+          ))}
+          {ticks
+            .filter((t) => t.isMajor)
+            .map((t) => (
+              <span
+                key={`label-${t.v}`}
+                className="absolute bottom-0 -translate-x-1/2 text-[0.7rem] tabular-nums text-ink-dim"
+                style={{ left: `${t.pos}%` }}
+              >
+                {t.v.toFixed(0)}
+              </span>
+            ))}
+
+          {/* Value marker */}
+          <span
+            className="absolute top-0 bottom-[13px] w-1 -translate-x-1/2 rounded-full bg-ember"
+            style={{ left: `${frac * 100}%` }}
+          />
+        </div>
       </div>
     </div>
   )

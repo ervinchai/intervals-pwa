@@ -23,16 +23,6 @@ import { useResource } from '@/lib/useResource'
 const BREW_METHODS = ['Espresso', 'V60', 'AeroPress', 'French Press', 'Moka', 'Cold Brew'] as const
 const BREW_RESULTS: BrewResult[] = ['Sour / Under', 'Balanced', 'Bitter / Over']
 
-/** Method-specific grind ranges. Espresso focuses on 0–5 for granular collar precision. */
-const METHOD_GRIND_RANGES: Record<string, { max: number; minorUntil?: number }> = {
-  Espresso: { max: 5 },
-  Moka: { max: 8 },
-  AeroPress: { max: 12 },
-  V60: { max: 14 },
-  'French Press': { max: 16, minorUntil: 6 },
-  'Cold Brew': { max: 16, minorUntil: 6 },
-}
-
 const TEMP_KEY = 'intervals:brew:lastTempC'
 
 export function BrewSession({ beanId }: { beanId: string }) {
@@ -58,10 +48,8 @@ function Session({ bean }: { bean: CoffeeBean }) {
   const { back } = useRouter()
   const target = parseTarget(bean.targetRecipe)
 
-  const initialMethod = bean.brewMethods?.[0] ?? 'Espresso'
-  const initialMax = (METHOD_GRIND_RANGES[initialMethod] ?? { max: 5 }).max
-  const [method, setMethod] = useState<string>(initialMethod)
-  const [grind, setGrind] = useState(Math.min(num(target?.grind) ?? 3, initialMax))
+  const [method, setMethod] = useState<string>(bean.brewMethods?.[0] ?? 'Espresso')
+  const [grind, setGrind] = useState(num(target?.grind) ?? 3)
   const [dose, setDose] = useState(num(target?.dose) ?? 18)
   const [yieldG, setYieldG] = useState(num(target?.yield) ?? 36)
   const [time, setTime] = useState(num(target?.time) ?? 30)
@@ -78,17 +66,6 @@ function Session({ bean }: { bean: CoffeeBean }) {
   const [error, setError] = useState<string | null>(null)
 
   const espresso = method === 'Espresso'
-  const currentGrindRange =
-    METHOD_GRIND_RANGES[method] ?? (espresso ? { max: 5 } : { max: 16, minorUntil: 4 })
-  const grindMax = currentGrindRange.max
-  const grindMinorUntil = currentGrindRange.minorUntil
-
-  const onSelectMethod = (m: string) => {
-    setMethod(m)
-    const range = METHOD_GRIND_RANGES[m] ?? (m === 'Espresso' ? { max: 5 } : { max: 16 })
-    setGrind((prev) => Math.min(prev, range.max))
-  }
-
   const ratio = dose > 0 ? Math.round((yieldG / dose) * 10) / 10 : null
   const inRange = ratio != null && ratio >= 1.5 && ratio <= 18
 
@@ -181,20 +158,20 @@ function Session({ bean }: { bean: CoffeeBean }) {
                 key={m}
                 size="sm"
                 variant={method === m ? 'select' : 'quiet'}
-                onClick={() => onSelectMethod(m)}
+                onClick={() => setMethod(m)}
               >
                 {m}
               </Button>
             ))}
           </Row>
           <RulerSlider
-            label="Grind — drag like the collar"
+            label="Grind"
             value={grind}
             onChange={setGrind}
             min={0}
-            max={grindMax}
+            max={16}
             step={0.1}
-            minorUntil={grindMinorUntil}
+            minorUntil={4}
           />
         </Stack>
       </Card>
