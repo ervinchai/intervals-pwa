@@ -40,15 +40,12 @@ export function PrintStatusPopup({
       {open && (
         <motion.div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-8"
-          // Bleed the dim past the layout-viewport bottom into the iOS
-          // home-indicator safe area, then pad the content back off it. In
-          // standalone a `bottom: 0` fixed element resolves to the layout
-          // viewport, which stops short of the physical screen by the bottom
-          // inset — leaving an un-dimmed strip once the home indicator shows.
-          style={{
-            bottom: 'calc(-1 * env(safe-area-inset-bottom))',
-            paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
-          }}
+          // Force the dim to the *largest* viewport height. A `fixed inset-0`
+          // box binds `bottom` to the layout viewport, which on iPad standalone
+          // stops short of the physical screen by the home-indicator strip, and
+          // env(safe-area-inset-bottom) reads 0 there so it can't be measured.
+          // 100vh always spans the full screen, spilling harmlessly below.
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -57,7 +54,10 @@ export function PrintStatusPopup({
           aria-modal={shown === 'error' || undefined}
           onClick={terminal ? onDismiss : undefined}
         >
-          <div className="flex w-80 flex-col items-center gap-4 rounded-card bg-base/95 px-8 py-6 shadow-lg">
+          <div
+            className="flex w-80 flex-col items-center gap-4 rounded-card bg-base/95 px-8 py-6 shadow-lg"
+            style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          >
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={shown}

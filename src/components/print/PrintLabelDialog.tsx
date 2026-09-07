@@ -69,14 +69,12 @@ export function PrintLabelDialog({
         {open && (
           <motion.div
             className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-8"
-            // Bleed the dim past the layout-viewport bottom into the iOS
-            // home-indicator safe area, then pad the content back off it — a
-            // plain `bottom: 0` fixed element stops short of the physical screen
-            // in standalone, leaving an un-dimmed strip. See PrintStatusPopup.
-            style={{
-              bottom: 'calc(-1 * env(safe-area-inset-bottom))',
-              paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
-            }}
+            // Force the dim to the *largest* viewport height. A `fixed inset-0`
+            // box binds `bottom` to the layout viewport, which on iPad standalone
+            // stops short of the physical screen by the home-indicator strip, and
+            // env(safe-area-inset-bottom) reads 0 there so it can't be measured.
+            // 100vh always spans the full screen, spilling harmlessly below.
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -84,7 +82,10 @@ export function PrintLabelDialog({
             role="dialog"
             aria-modal
           >
-            <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-card bg-base/95 p-6 text-center shadow-lg">
+            <div
+              className="flex w-full max-w-sm flex-col items-center gap-4 rounded-card bg-base/95 p-6 text-center shadow-lg"
+              style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+            >
               <Heading role="label" as="span">
                 {title}
               </Heading>

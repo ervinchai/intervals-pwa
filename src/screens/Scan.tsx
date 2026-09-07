@@ -272,7 +272,10 @@ function ScanPopup({
 }) {
   if (popup.kind === 'success') {
     return (
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
+      <div 
+        className="pointer-events-none fixed top-0 left-0 right-0 z-50 flex items-center justify-center bg-black/40"
+        style={{ height: '100vh' }}
+      >
         <div className="flex flex-col items-center gap-3 rounded-card bg-base/95 px-8 py-6 text-center shadow-lg">
           <CheckCircle2 className="h-12 w-12 text-ember" />
           <Text>Scanned</Text>
@@ -283,7 +286,8 @@ function ScanPopup({
 
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center bg-black/60 p-8"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center bg-black/60 p-8"
+      style={{ height: '100vh' }}
       role="alertdialog"
       aria-modal="true"
     >

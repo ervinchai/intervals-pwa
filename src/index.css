@@ -123,10 +123,11 @@
 
   html,
   body {
-    height: 100%;
+    height: 100vh;
     /* The shell is a fixed dashboard, not a document — nothing at the page level
        ever scrolls. Internal regions that need it opt in with overflow-y-auto. */
     overflow: hidden;
+    overscroll-behavior: none;
   }
 
   /* Pin the app to the visual viewport. `height: 100%` alone leaves iOS
@@ -134,7 +135,10 @@
      dashboard drift up and down. Fixed + inset-0 nails it to the frame. */
   #root {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
     background-color: var(--color-base);
   }
@@ -146,11 +150,12 @@
     /* Kiosk browser-isms: no rubber-band scroll, no long-press callout,
        no grey tap flash, no text cursor, no double-tap zoom. */
     overscroll-behavior: none;
+    overflow: hidden;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-    touch-action: manipulation;
+    touch-action: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
