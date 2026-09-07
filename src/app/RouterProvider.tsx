@@ -68,20 +68,12 @@ export function RouterProvider({
     setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev))
   }, [])
 
-  // Keep the address bar in sync with the current screen, and honour the
-  // browser's back/forward buttons. Without this the URL never reflects the
-  // page: navigation is pure in-memory state and a reload loses the screen.
+  // Keep the address bar in sync with the current screen. Always use replaceState
+  // so browser history does not grow, which disables Safari's edge-swipe back navigation.
   useEffect(() => {
-    const firstSync = !didSyncUrl.current
     didSyncUrl.current = true
     if (window.location.pathname === screenPath) return
-    // The first sync canonicalises the loaded URL (replace) so it doesn't stack
-    // a phantom entry behind the landing screen; later ones are real pushes.
-    if (firstSync) {
-      window.history.replaceState(null, '', screenPath)
-    } else {
-      window.history.pushState(null, '', screenPath)
-    }
+    window.history.replaceState(null, '', screenPath)
   }, [screenPath])
 
   useEffect(() => {
