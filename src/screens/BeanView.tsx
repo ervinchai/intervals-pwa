@@ -29,7 +29,7 @@ export function BeanView({ beanId }: { beanId: string }) {
   const { back, canGoBack, navigate } = useRouter()
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
   const [printing, setPrinting] = useState(false)
-  const [recipeOpen, setRecipeOpen] = useState(false)
+  const [sheetBrew, setSheetBrew] = useState<BrewLogEntry | null>(null)
 
   return (
     <AsyncScreen
@@ -85,7 +85,7 @@ export function BeanView({ beanId }: { beanId: string }) {
                     <button
                       type="button"
                       disabled={!targetBrew}
-                      onClick={() => targetBrew && setRecipeOpen(true)}
+                      onClick={() => targetBrew && setSheetBrew(targetBrew)}
                       className="text-left enabled:cursor-pointer"
                       aria-label={targetBrew ? 'Open target recipe card' : undefined}
                     >
@@ -179,7 +179,7 @@ export function BeanView({ beanId }: { beanId: string }) {
                           key={b.id}
                           brew={b}
                           isLatest={i === data.brews.length - 1}
-                          onOpenRecipe={() => setRecipeOpen(true)}
+                          onOpen={() => setSheetBrew(b)}
                         />
                       ))}
                     </>
@@ -213,10 +213,10 @@ export function BeanView({ beanId }: { beanId: string }) {
             </div>
 
             <RecipeSheet
-              brew={targetBrew}
+              brew={sheetBrew}
               beanName={data.name}
-              open={recipeOpen && targetBrew != null}
-              onClose={() => setRecipeOpen(false)}
+              open={sheetBrew != null}
+              onClose={() => setSheetBrew(null)}
             />
           </Stack>
         )
@@ -260,16 +260,19 @@ function LogHead() {
 function LogRow({
   brew,
   isLatest,
-  onOpenRecipe,
+  onOpen,
 }: {
   brew: BrewLogEntry
   isLatest: boolean
-  onOpenRecipe: () => void
+  onOpen: () => void
 }) {
   const cell = 'font-sans text-[0.9375rem] tabular-nums text-ink'
   return (
-    <div
-      className="border-b border-line px-[14px] py-2.5"
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open recipe card for the ${brew.dateLabel} brew`}
+      className="block w-full cursor-pointer border-b border-line px-[14px] py-2.5 text-left transition-[background-color] duration-150 hover:brightness-105 active:bg-raised"
       style={{
         background:
           brew.isTarget
@@ -289,15 +292,10 @@ function LogRow({
         <Row gap="sm" align="center" justify="between">
           <Row gap="sm" align="center">
             {brew.isTarget ? (
-              <button
-                type="button"
-                onClick={onOpenRecipe}
-                aria-label="Target recipe — open card"
-                className="inline-flex items-center gap-1 rounded-full bg-ember/15 px-2 py-0.5 text-ember"
-              >
+              <span className="inline-flex items-center gap-1 rounded-full bg-ember/15 px-2 py-0.5 text-ember">
                 <Target className="h-3.5 w-3.5" />
                 <span className="text-xs font-semibold">Target</span>
-              </button>
+              </span>
             ) : null}
             {brew.result ? <Badge tone={resultTone(brew.result)}>{brew.result}</Badge> : null}
           </Row>
@@ -305,9 +303,9 @@ function LogRow({
         </Row>
       </div>
       {brew.adjustment ? (
-        <Text size="sm" tone="dim" className="mt-1">→ {brew.adjustment}</Text>
+        <Text size="sm" tone="dim" className="mt-1 block">→ {brew.adjustment}</Text>
       ) : null}
-    </div>
+    </button>
   )
 }
 
