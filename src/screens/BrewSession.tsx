@@ -58,7 +58,6 @@ function Session({ bean }: { bean: CoffeeBean }) {
   const [temp, setTemp] = useState(isNaN(lastTemp) ? 93 : lastTemp)
 
   const [result, setResult] = useState<BrewResult | ''>('')
-  const [rating, setRating] = useState(0)
   const [adjustment, setAdjustment] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -93,7 +92,6 @@ function Session({ bean }: { bean: CoffeeBean }) {
       timeS: time,
       waterTempC: temp,
       result: result || undefined,
-      rating: rating || undefined,
       adjustment: adjustment.trim() || undefined,
       notes: notes.trim() || undefined,
     }
@@ -235,21 +233,6 @@ function Session({ bean }: { bean: CoffeeBean }) {
                   onClick={() => setResult(result === r ? '' : r)}
                 >
                   {r}
-                </Button>
-              ))}
-            </Row>
-          </Field>
-          <Field label="Rating" hint="out of five">
-            <Row gap="sm">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Button
-                  key={n}
-                  size="sm"
-                  variant={rating >= n && rating > 0 ? 'select' : 'quiet'}
-                  onClick={() => setRating(rating === n ? 0 : n)}
-                  className="min-w-10 px-0"
-                >
-                  {n}
                 </Button>
               ))}
             </Row>

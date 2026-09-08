@@ -35,7 +35,6 @@ const BEANS: Record<string, CoffeeBean> = {
     brewMethods: ['V60', 'Espresso'],
     targetRecipe: '2.5 · 18g in · 38g out · 28s',
     status: 'Open',
-    rating: 4,
     brews: [
       {
         id: 'BR-1',
@@ -48,7 +47,6 @@ const BEANS: Record<string, CoffeeBean> = {
         waterTempC: 94,
         ratio: 2.2,
         result: 'Sour / Under',
-        rating: 2,
         adjustment: 'Grind finer, aim for ~30s',
       },
       {
@@ -62,7 +60,6 @@ const BEANS: Record<string, CoffeeBean> = {
         waterTempC: 94,
         ratio: 2.1,
         result: 'Balanced',
-        rating: 4,
         adjustment: 'Keep. Maybe -0.5g dose to open florals.',
       },
     ],
@@ -85,7 +82,6 @@ const BEANS: Record<string, CoffeeBean> = {
     brewMethods: ['Espresso'],
     targetRecipe: '3.0 · 18g in · 36g out · 30s',
     status: 'Open',
-    rating: 5,
     brews: [],
   },
 }
@@ -123,7 +119,6 @@ export function mockLogBrew(input: BrewLogInput): BrewLogEntry {
     waterTempC: input.waterTempC,
     ratio,
     result: input.result,
-    rating: input.rating,
     adjustment: input.adjustment,
     notes: input.notes,
   }
@@ -165,13 +160,11 @@ export function mockCreateBean(input: BeanCreateInput): CoffeeBeanSummary {
     weightG: input.weightG,
     price: input.price,
     tastingNotes: input.tastingNotes,
-    targetRecipe: input.targetRecipe,
     brewMethods: input.brewMethods,
     status: input.status,
-    rating: input.rating,
     brews: [],
   }
   BEANS[id] = bean
-  const { name, roaster, origin, roastLevel, roastDateLabel, status, rating } = bean
-  return { id, name, roaster, origin, roastLevel, roastDateLabel, status, rating }
+  const { name, roaster, origin, roastLevel, roastDateLabel, status } = bean
+  return { id, name, roaster, origin, roastLevel, roastDateLabel, status }
 }

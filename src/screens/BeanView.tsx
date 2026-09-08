@@ -22,7 +22,7 @@ import { beanLabel } from '@/lib/labels'
 import { daysOffRoast, freshness, parseTarget } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
-const LOG_COLS = '52px 58px 58px 58px 54px 52px 50px minmax(0,1fr)'
+const LOG_COLS = '52px 58px 58px 58px 54px 52px minmax(0,1fr)'
 
 export function BeanView({ beanId }: { beanId: string }) {
   const { back, canGoBack, navigate } = useRouter()
@@ -186,7 +186,6 @@ export function BeanView({ beanId }: { beanId: string }) {
                   <Fact label="Bought" value={data.purchaseDateLabel} />
                   <Fact label="Weight" value={data.weightG ? `${data.weightG} g` : undefined} />
                   <Fact label="Price" value={data.price ? `£${data.price}` : undefined} />
-                  <Fact label="Rating" value={data.rating ? `${data.rating}/5` : undefined} />
                 </FactGroup>
 
                 <FactGroup title="In the cup">
@@ -229,7 +228,7 @@ function LogHead() {
       className="grid gap-[10px] border-b border-line px-[14px] pb-1.5"
       style={{ gridTemplateColumns: LOG_COLS }}
     >
-      {['Grind', 'Dose', 'Yield', 'Ratio', 'Time', 'Temp', 'Rating', 'Result'].map((h) => (
+      {['Grind', 'Dose', 'Yield', 'Ratio', 'Time', 'Temp', 'Result'].map((h) => (
         <Text key={h} size="xs" tone="faint" className="font-semibold uppercase tracking-[0.08em]">{h}</Text>
       ))}
     </div>
@@ -254,7 +253,6 @@ function LogRow({ brew, isLatest }: { brew: BrewLogEntry; isLatest: boolean }) {
         <span className={`${cell} font-semibold text-ember`}>1:{brew.ratio}</span>
         <span className={cell}>{brew.timeS}<span className="text-ink-faint">s</span></span>
         <span className={cell}>{brew.waterTempC}<span className="text-ink-faint">°</span></span>
-        <span className={cell}>{brew.rating}<span className="text-ink-faint">/5</span></span>
         <Row gap="sm" justify="between">
           <Badge tone={resultTone(brew.result)}>{brew.result}</Badge>
           <Text size="xs" tone="faint">{brew.dateLabel}</Text>

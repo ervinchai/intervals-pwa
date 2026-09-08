@@ -149,7 +149,7 @@ export async function fetchCoffeeCollection(): Promise<CoffeeCollection> {
   if (shouldMock('coffee')) {
     // Derive summaries from the full fixtures so the two never drift apart.
     const beans = mockBeanList().map(
-      ({ id, name, roaster, origin, roastLevel, roastDateLabel, status, rating }) => ({
+      ({ id, name, roaster, origin, roastLevel, roastDateLabel, status }) => ({
         id,
         name,
         roaster,
@@ -157,7 +157,6 @@ export async function fetchCoffeeCollection(): Promise<CoffeeCollection> {
         roastLevel,
         roastDateLabel,
         status,
-        rating,
       }),
     )
     return mock({ beans })

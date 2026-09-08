@@ -140,7 +140,6 @@ export const BrewLogEntrySchema = z.object({
   /** Yield ÷ dose, computed by Notion; shown as e.g. 2.1 for a 1:2.1 ratio. */
   ratio: z.number().optional(),
   result: BrewResultSchema.optional(),
-  rating: z.number().optional(),
   /** What to change on the next brew. */
   adjustment: z.string().optional(),
   notes: z.string().optional(),
@@ -157,7 +156,6 @@ export const CoffeeBeanSummarySchema = z.object({
   /** Pre-formatted roast date, e.g. "roasted 3 days ago" or "2 Sep". */
   roastDateLabel: z.string().optional(),
   status: z.string().optional(),
-  rating: z.number().optional(),
   process: z.string().optional(),
   weightG: z.number().optional(),
   /** The current dialed-in brew — grind / dose / yield / time as one line. */
@@ -191,7 +189,6 @@ export const BrewLogInputSchema = z.object({
   timeS: z.number().optional(),
   waterTempC: z.number().optional(),
   result: BrewResultSchema.optional(),
-  rating: z.number().optional(),
   adjustment: z.string().optional(),
   notes: z.string().optional(),
 })
@@ -216,10 +213,9 @@ export const BeanCreateInputSchema = z.object({
   weightG: z.number().optional(),
   price: z.number().optional(),
   tastingNotes: z.string().optional(),
-  targetRecipe: z.string().optional(),
+  // Target Recipe is a Brew Log relation set from an existing brew, not typed here.
   brewMethods: z.array(z.string()).default([]),
   status: z.string().optional(),
-  rating: z.number().optional(),
 })
 
 /**

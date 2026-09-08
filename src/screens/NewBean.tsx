@@ -42,10 +42,8 @@ export function NewBean() {
   const [weightG, setWeightG] = useState('')
   const [price, setPrice] = useState('')
   const [brewMethods, setBrewMethods] = useState<string[]>([])
-  const [targetRecipe, setTargetRecipe] = useState('')
   const [tastingNotes, setTastingNotes] = useState('')
   const [status, setStatus] = useState('')
-  const [rating, setRating] = useState(0)
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,10 +71,8 @@ export function NewBean() {
       weightG: numberOrUndefined(weightG),
       price: numberOrUndefined(price),
       tastingNotes: tastingNotes.trim() || undefined,
-      targetRecipe: targetRecipe.trim() || undefined,
       brewMethods,
       status: status || undefined,
-      rating: rating || undefined,
     }
     try {
       const created = await createBean(input)
@@ -161,14 +157,6 @@ export function NewBean() {
             </Row>
           </Field>
 
-          <Field label="Target recipe">
-            <Input
-              value={targetRecipe}
-              onChange={(e) => setTargetRecipe(e.target.value)}
-              placeholder="2.5 · 18g in · 38g out · 28s"
-            />
-          </Field>
-
           <Field label="Tasting notes">
             <Input
               value={tastingNotes}
@@ -179,21 +167,6 @@ export function NewBean() {
 
           <Field label="Status">
             <Chips options={STATUSES} value={status} onPick={setStatus} />
-          </Field>
-
-          <Field label="Rating">
-            <Row gap="sm" className="flex-wrap">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Button
-                  key={n}
-                  size="sm"
-                  variant={rating === n ? 'select' : 'quiet'}
-                  onClick={() => setRating(rating === n ? 0 : n)}
-                >
-                  {n}
-                </Button>
-              ))}
-            </Row>
           </Field>
 
           {error ? <Text tone="ember">{error}</Text> : null}
