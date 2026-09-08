@@ -27,33 +27,16 @@ const MONTH_NAMES = [
 ] as const
 
 /**
- * Formats a roast date into uppercase display e.g. "20 SEP 2026".
- * Handles ISO strings (2026-09-20), partial labels (20 Sep), or existing formatted dates.
+ * Formats the bean's raw ISO roast date (e.g. "2026-09-20") into uppercase
+ * display, e.g. "20 SEP 2026".
  */
-function formatRoastDate(dateStr?: string | null): string | undefined {
-  if (!dateStr) return undefined
-  const trimmed = dateStr.trim()
-  if (!trimmed) return undefined
-
-  // Match ISO YYYY-MM-DD
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch
-    const month = MONTH_NAMES[parseInt(m, 10) - 1]
-    const day = parseInt(d, 10)
-    return `${day} ${month} ${y}`
-  }
-
-  // Match "20 Sep 2026", "20 September 2026", or "20 Sep" (infers current year)
-  const textMatch = trimmed.match(/^(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/)
-  if (textMatch) {
-    const [, d, m, y] = textMatch
-    const year = y ?? new Date().getFullYear()
-    const month = m.slice(0, 3).toUpperCase()
-    return `${parseInt(d, 10)} ${month} ${year}`
-  }
-
-  return trimmed.toUpperCase()
+function formatRoastDate(isoDate?: string | null): string | undefined {
+  if (!isoDate) return undefined
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate.trim())
+  if (!match) return undefined
+  const [, y, m, d] = match
+  const month = MONTH_NAMES[parseInt(m, 10) - 1]
+  return `${parseInt(d, 10)} ${month} ${y}`
 }
 
 /** A single styled run, defaulting to plain weight. */
@@ -78,7 +61,7 @@ function lines(...paragraphs: (StyledRun[] | null | undefined)[]): RichText {
  *   7. roaster name
  */
 export function beanLabel(bean: CoffeeBean | CoffeeBeanSummary): LabelInput {
-  const roastDate = formatRoastDate(bean.roastDateLabel)
+  const roastDate = formatRoastDate(bean.roastDate)
   const hasRoastInfo = Boolean(bean.roastLevel || roastDate)
 
   return {

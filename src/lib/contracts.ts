@@ -128,8 +128,8 @@ export const BrewResultSchema = z.enum(['Sour / Under', 'Balanced', 'Bitter / Ov
 /** One dial-in entry against a bean. */
 export const BrewLogEntrySchema = z.object({
   id: z.string(),
-  /** Pre-formatted date label, e.g. "6 Sep". The backend owns the formatting. */
-  dateLabel: z.string(),
+  /** ISO-8601 timestamp (Notion page `created_time`); the hub formats it for display. */
+  createdAt: z.string(),
   method: z.string(),
   /** Grinder setting, free-form (clicks, numbers). */
   grind: z.string().optional(),
@@ -155,8 +155,8 @@ export const CoffeeBeanSummarySchema = z.object({
   roaster: z.string().optional(),
   origin: z.string().optional(),
   roastLevel: z.string().optional(),
-  /** Pre-formatted roast date, e.g. "roasted 3 days ago" or "2 Sep". */
-  roastDateLabel: z.string().optional(),
+  /** ISO calendar date (yyyy-mm-dd); the hub formats it for display. */
+  roastDate: z.string().optional(),
   status: z.string().optional(),
   process: z.string().optional(),
   weightG: z.number().optional(),
@@ -170,7 +170,8 @@ export const CoffeeBeanSchema = CoffeeBeanSummarySchema.extend({
   producer: z.string().optional(),
   varietal: z.string().optional(),
   altitude: z.string().optional(),
-  purchaseDateLabel: z.string().optional(),
+  /** ISO calendar date (yyyy-mm-dd); the hub formats it for display. */
+  purchaseDate: z.string().optional(),
   price: z.number().optional(),
   tastingNotes: z.string().optional(),
   brewMethods: z.array(z.string()).default([]),

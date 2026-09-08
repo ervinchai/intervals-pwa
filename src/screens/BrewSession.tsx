@@ -17,7 +17,7 @@ import {
 } from '@/components/ui'
 import type { BrewLogInput, BrewResult, CoffeeBean } from '@/lib/contracts'
 import { fetchCoffeeBean, logBrew } from '@/lib/data'
-import { parseTarget } from '@/lib/coffee-utils'
+import { formatBrewTime, parseTarget } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
 const BREW_METHODS = ['Espresso', 'V60', 'AeroPress', 'French Press', 'Moka', 'Cold Brew'] as const
@@ -42,6 +42,18 @@ export function BrewSession({ beanId }: { beanId: string }) {
 function num(t: string | null | undefined): number | undefined {
   const m = (t ?? '').match(/-?\d+(\.\d+)?/)
   return m ? Number(m[0]) : undefined
+}
+
+/** The target value for one field, pinned in the corner of its own control
+ *  instead of listed once as a block up top disconnected from the controls
+ *  it describes. Hidden when there's no target for that field. */
+function TargetHint({ value }: { value?: string }) {
+  if (!value) return null
+  return (
+    <Text size="xs" tone="faint" className="absolute right-3 top-3">
+      target {value}
+    </Text>
+  )
 }
 
 function Session({ bean }: { bean: CoffeeBean }) {
@@ -70,6 +82,7 @@ function Session({ bean }: { bean: CoffeeBean }) {
 
   const targetDose = num(target?.dose)
   const targetYield = num(target?.yield)
+  const targetTimeS = num(target?.time)
   const targetRatio =
     targetDose && targetDose > 0 && targetYield
       ? Math.round((targetYield / targetDose) * 10) / 10
@@ -107,45 +120,45 @@ function Session({ bean }: { bean: CoffeeBean }) {
   return (
     <Stack gap="lg" className="h-full min-h-0 overflow-hidden">
       {/* Header */}
-      <Row gap="md">
-        <Button variant="ghost" size="icon" aria-label="Back" onClick={back}>
-          <ArrowLeft className="h-5 w-5" />
+      <Stack gap="xs">
+        <Button variant="ghost" size="sm" className="w-fit -ml-3 px-3" onClick={back}>
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {bean.name}
         </Button>
-        <Stack gap="none" className="min-w-0">
-          <Heading role="title">Dial in</Heading>
-          <Text size="sm" tone="dim">
-            {bean.name} · {bean.roaster}
-          </Text>
-        </Stack>
-        <Spacer />
-        <Stack gap="none" align="end">
-          <Text size="xs" tone="faint">
-            Target {bean.targetRecipe}
-          </Text>
-          <Row gap="sm" align="baseline">
-            <span
-              className="text-[2.5rem] font-semibold leading-none tabular-nums"
-              style={{ color: inRange ? 'var(--color-ember)' : 'var(--color-ink)' }}
-            >
-              {ratio != null ? `1:${ratio.toFixed(1)}` : '—'}
-            </span>
-            {drift != null && drift !== 0 ? (
-              <Text
-                size="sm"
-                tone={Math.abs(drift) <= 0.2 ? 'faint' : 'default'}
-                className="tabular-nums"
-                style={{ color: Math.abs(drift) > 0.2 ? 'var(--color-clay)' : undefined }}
+        <Row gap="md">
+          <Stack gap="none" className="min-w-0">
+            <Heading role="title">Dial in</Heading>
+            <Text size="sm" tone="dim">
+              {bean.roaster} · {bean.id} · {bean.status}
+            </Text>
+          </Stack>
+          <Spacer />
+          <Stack gap="none" align="end">
+            <Row gap="sm" align="baseline">
+              <span
+                className="text-[2.5rem] font-semibold leading-none tabular-nums"
+                style={{ color: inRange ? 'var(--color-ember)' : 'var(--color-ink)' }}
               >
-                {drift > 0 ? '+' : ''}{drift.toFixed(1)} vs target
-              </Text>
-            ) : (
-              <Text size="sm" tone="sage">
-                on target
-              </Text>
-            )}
-          </Row>
-        </Stack>
-      </Row>
+                {ratio != null ? `1:${ratio.toFixed(1)}` : '—'}
+              </span>
+              {drift != null && drift !== 0 ? (
+                <Text
+                  size="sm"
+                  tone={Math.abs(drift) <= 0.2 ? 'faint' : 'default'}
+                  className="tabular-nums"
+                  style={{ color: Math.abs(drift) > 0.2 ? 'var(--color-clay)' : undefined }}
+                >
+                  {drift > 0 ? '+' : ''}{drift.toFixed(1)} vs target
+                </Text>
+              ) : (
+                <Text size="sm" tone="sage">
+                  on target
+                </Text>
+              )}
+            </Row>
+          </Stack>
+        </Row>
+      </Stack>
 
       {/* Band 1 - Live Controls */}
       <Card pad="md">
@@ -162,20 +175,24 @@ function Session({ bean }: { bean: CoffeeBean }) {
               </Button>
             ))}
           </Row>
-          <RulerSlider
-            label="Grind"
-            value={grind}
-            onChange={setGrind}
-            min={0}
-            max={16}
-            step={0.1}
-            minorUntil={4}
-          />
+          <div className="relative">
+            <TargetHint value={target?.grind} />
+            <RulerSlider
+              label="Grind"
+              value={grind}
+              onChange={setGrind}
+              min={0}
+              max={16}
+              step={0.1}
+              minorUntil={4}
+            />
+          </div>
         </Stack>
       </Card>
 
       <div className="grid grid-cols-4 gap-3.5">
-        <Card pad="md">
+        <Card pad="md" className="relative">
+          <TargetHint value={targetDose != null ? `${targetDose}g` : undefined} />
           <Scrubber
             label="Dose"
             value={dose}
@@ -186,7 +203,8 @@ function Session({ bean }: { bean: CoffeeBean }) {
             unit="g"
           />
         </Card>
-        <Card pad="md">
+        <Card pad="md" className="relative">
+          <TargetHint value={targetYield != null ? `${targetYield}g` : undefined} />
           <Scrubber
             label="Yield"
             value={yieldG}
@@ -197,7 +215,8 @@ function Session({ bean }: { bean: CoffeeBean }) {
             unit="g"
           />
         </Card>
-        <Card pad="md">
+        <Card pad="md" className="relative">
+          <TargetHint value={targetTimeS != null ? formatBrewTime(targetTimeS) : undefined} />
           <Scrubber
             label="Time"
             value={time}

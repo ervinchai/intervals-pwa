@@ -120,7 +120,7 @@ function BeanRow({
   bean: CoffeeBeanSummary
   onPick: () => void
 }) {
-  const days = daysOffRoast(bean.roastDateLabel)
+  const days = daysOffRoast(bean.roastDate)
   const fresh = freshness(days)
   const target = parseTarget(bean.targetRecipe)
 

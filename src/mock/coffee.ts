@@ -27,8 +27,8 @@ const BEANS: Record<string, CoffeeBean> = {
     varietal: 'Heirloom',
     altitude: '1950–2100 masl',
     roastLevel: 'Light',
-    roastDateLabel: '2 Sep',
-    purchaseDateLabel: '3 Sep',
+    roastDate: '2026-09-02',
+    purchaseDate: '2026-09-03',
     weightG: 250,
     price: 22,
     tastingNotes: 'Bergamot, jasmine, white peach',
@@ -38,7 +38,7 @@ const BEANS: Record<string, CoffeeBean> = {
     brews: [
       {
         id: 'BR-1',
-        dateLabel: '4 Sep',
+        createdAt: '2026-09-04T08:00:00.000Z',
         method: 'Espresso',
         grind: '2.7',
         doseG: 18,
@@ -52,7 +52,7 @@ const BEANS: Record<string, CoffeeBean> = {
       },
       {
         id: 'BR-2',
-        dateLabel: '5 Sep',
+        createdAt: '2026-09-05T08:00:00.000Z',
         method: 'Espresso',
         grind: '2.5',
         doseG: 18,
@@ -77,7 +77,7 @@ const BEANS: Record<string, CoffeeBean> = {
     varietal: 'Pink Bourbon',
     altitude: '1750 masl',
     roastLevel: 'Medium-Light',
-    roastDateLabel: '29 Aug',
+    roastDate: '2026-08-29',
     weightG: 250,
     price: 20,
     tastingNotes: 'Strawberry, cacao, red apple',
@@ -112,7 +112,7 @@ export function mockLogBrew(input: BrewLogInput): BrewLogEntry {
 
   const entry: BrewLogEntry = {
     id: `BR-${nextBrew++}`,
-    dateLabel: 'Just now',
+    createdAt: new Date().toISOString(),
     method: input.method,
     grind: input.grind,
     doseG: input.doseG,
@@ -130,18 +130,23 @@ export function mockLogBrew(input: BrewLogInput): BrewLogEntry {
   return entry
 }
 
+/** Mark one of a bean's own brews as its target recipe; returns the updated bean. */
+export function mockSetTargetBrew(beanId: string, brewId: string): CoffeeBean {
+  const bean = BEANS[beanId]
+  if (!bean) throw new Error(`No mock bean "${beanId}"`)
+  const target = bean.brews.find((b) => b.id === brewId)
+  if (!target) throw new Error(`Brew "${brewId}" is not in bean "${beanId}"'s log`)
+
+  bean.brews = bean.brews.map((b) => ({ ...b, isTarget: b.id === brewId }))
+  bean.targetRecipe = [target.grind, `${target.doseG}g in`, `${target.yieldG}g out`, `${target.timeS}s`]
+    .filter(Boolean)
+    .join(' · ')
+  return bean
+}
+
 /** Reserve the next bean id, so a create form can preview its printable code. */
 export function mockNextBeanId(): string {
   return `BN-${nextBean}`
-}
-
-/** Turn an ISO date (yyyy-mm-dd) into the short label the backend would format. */
-function label(iso?: string): string | undefined {
-  if (!iso) return undefined
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? undefined
-    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 /** Catalog a new bean in the in-memory store and return its summary. */
@@ -158,8 +163,10 @@ export function mockCreateBean(input: BeanCreateInput): CoffeeBeanSummary {
     varietal: input.varietal,
     altitude: input.altitude,
     roastLevel: input.roastLevel,
-    roastDateLabel: label(input.roastDate),
-    purchaseDateLabel: label(input.purchaseDate),
+    // Already plain ISO calendar dates (yyyy-mm-dd) — the form sends them as such
+    // and, like the real backend, we pass them through rather than formatting.
+    roastDate: input.roastDate,
+    purchaseDate: input.purchaseDate,
     weightG: input.weightG,
     price: input.price,
     tastingNotes: input.tastingNotes,
@@ -168,6 +175,6 @@ export function mockCreateBean(input: BeanCreateInput): CoffeeBeanSummary {
     brews: [],
   }
   BEANS[id] = bean
-  const { name, roaster, origin, roastLevel, roastDateLabel, status } = bean
-  return { id, name, roaster, origin, roastLevel, roastDateLabel, status }
+  const { name, roaster, origin, roastLevel, roastDate, status } = bean
+  return { id, name, roaster, origin, roastLevel, roastDate, status }
 }

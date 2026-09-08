@@ -29,6 +29,7 @@ import {
   mockBeanList,
   mockCreateBean,
   mockLogBrew,
+  mockSetTargetBrew,
 } from '@/mock/coffee'
 import { MOCK_BRIEFING, MOCK_MEAL_PLAN, MOCK_RECIPES } from '@/mock/data'
 
@@ -149,13 +150,13 @@ export async function fetchCoffeeCollection(): Promise<CoffeeCollection> {
   if (shouldMock('coffee')) {
     // Derive summaries from the full fixtures so the two never drift apart.
     const beans = mockBeanList().map(
-      ({ id, name, roaster, origin, roastLevel, roastDateLabel, status }) => ({
+      ({ id, name, roaster, origin, roastLevel, roastDate, status }) => ({
         id,
         name,
         roaster,
         origin,
         roastLevel,
-        roastDateLabel,
+        roastDate,
         status,
       }),
     )
@@ -178,6 +179,12 @@ export async function fetchCoffeeBean(id: string): Promise<CoffeeBean> {
 export async function logBrew(input: BrewLogInput): Promise<BrewLogEntry> {
   if (shouldMock('coffee')) return mock(mockLogBrew(input))
   return runScript('intervals/brew_create', { ...input }, BrewLogEntrySchema)
+}
+
+/** Mark a brew as a bean's target (dialed-in) recipe; returns the updated bean. */
+export async function setTargetBrew(beanId: string, brewId: string): Promise<CoffeeBean> {
+  if (shouldMock('coffee')) return mock(mockSetTargetBrew(beanId, brewId))
+  return runScript('intervals/set_target_brew', { beanId, brewId }, CoffeeBeanSchema)
 }
 
 /** Catalog a new bean; returns the created summary (Bean ID assigned by Notion). */
