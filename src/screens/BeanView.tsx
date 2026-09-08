@@ -1,8 +1,9 @@
-import { ArrowLeft, Coffee, Plus, Printer } from 'lucide-react'
+import { ArrowLeft, Coffee, Plus, Printer, Target } from 'lucide-react'
 import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
 import { PrintLabelDialog } from '@/components/print'
+import { RecipeSheet } from './RecipeSheet'
 import { AsyncScreen } from '@/components/ScreenState'
 import {
   Badge,
@@ -28,6 +29,7 @@ export function BeanView({ beanId }: { beanId: string }) {
   const { back, canGoBack, navigate } = useRouter()
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
   const [printing, setPrinting] = useState(false)
+  const [recipeOpen, setRecipeOpen] = useState(false)
 
   return (
     <AsyncScreen
@@ -38,6 +40,7 @@ export function BeanView({ beanId }: { beanId: string }) {
     >
       {(data) => {
         const target = parseTarget(data.targetRecipe)
+        const targetBrew = data.brews.find((b) => b.isTarget) ?? null
         const days = daysOffRoast(data.roastDateLabel)
         const fresh = freshness(days)
         const last = data.brews.length > 0 ? data.brews[data.brews.length - 1] : null
@@ -79,24 +82,35 @@ export function BeanView({ beanId }: { beanId: string }) {
               <Row gap="xl">
                 {target ? (
                   <>
-                    <Stack gap="none">
-                      <Text size="xs" tone="faint">Target</Text>
-                      <Row gap="md" align="baseline">
-                        {Object.entries({
-                          grind: target.grind,
-                          in: target.dose,
-                          out: target.yield,
-                          time: target.time,
-                        }).map(([k, v]) => (
-                          <Row key={k} gap="xs" align="baseline">
-                            <span className="text-[1.75rem] font-semibold tabular-nums text-ember">
-                              {String(v).replace(/[a-z]+$/i, '')}
-                            </span>
-                            <Text size="xs" tone="faint">{k}</Text>
-                          </Row>
-                        ))}
-                      </Row>
-                    </Stack>
+                    <button
+                      type="button"
+                      disabled={!targetBrew}
+                      onClick={() => targetBrew && setRecipeOpen(true)}
+                      className="text-left enabled:cursor-pointer"
+                      aria-label={targetBrew ? 'Open target recipe card' : undefined}
+                    >
+                      <Stack gap="none">
+                        <Row gap="xs" align="center">
+                          <Text size="xs" tone="faint">Target</Text>
+                          {targetBrew ? <Target className="h-3.5 w-3.5 text-ember" /> : null}
+                        </Row>
+                        <Row gap="md" align="baseline">
+                          {Object.entries({
+                            grind: target.grind,
+                            in: target.dose,
+                            out: target.yield,
+                            time: target.time,
+                          }).map(([k, v]) => (
+                            <Row key={k} gap="xs" align="baseline">
+                              <span className="text-[1.75rem] font-semibold tabular-nums text-ember">
+                                {String(v).replace(/[a-z]+$/i, '')}
+                              </span>
+                              <Text size="xs" tone="faint">{k}</Text>
+                            </Row>
+                          ))}
+                        </Row>
+                      </Stack>
+                    </button>
                     <div className="w-px self-stretch bg-line" />
                   </>
                 ) : null}
@@ -124,7 +138,9 @@ export function BeanView({ beanId }: { beanId: string }) {
                 </Stack>
 
                 <Spacer />
-                {last ? <Badge tone={resultTone(last.result)}>Last: {last.result}</Badge> : null}
+                {last && last.result ? (
+                  <Badge tone={resultTone(last.result)}>Last: {last.result}</Badge>
+                ) : null}
                 <Button onClick={() => navigate({ name: 'brew', beanId: data.id })}>
                   <Coffee className="mr-1.5 h-[18px] w-[18px]" />Dial in
                 </Button>
@@ -163,6 +179,7 @@ export function BeanView({ beanId }: { beanId: string }) {
                           key={b.id}
                           brew={b}
                           isLatest={i === data.brews.length - 1}
+                          onOpenRecipe={() => setRecipeOpen(true)}
                         />
                       ))}
                     </>
@@ -186,16 +203,21 @@ export function BeanView({ beanId }: { beanId: string }) {
                   <Fact label="Bought" value={data.purchaseDateLabel} />
                   <Fact label="Weight" value={data.weightG ? `${data.weightG} g` : undefined} />
                   <Fact label="Price" value={data.price ? `£${data.price}` : undefined} />
+                  <Fact label="Profile" value={data.brewMethods?.length ? data.brewMethods.join(', ') : undefined} />
                 </FactGroup>
 
                 <FactGroup title="In the cup">
                   {data.tastingNotes ? <Text size="sm" tone="dim">{data.tastingNotes}</Text> : null}
-                  <Row gap="sm" className="mt-1 flex-wrap">
-                    {data.brewMethods?.map((m) => <Badge key={m}>{m}</Badge>)}
-                  </Row>
                 </FactGroup>
               </Stack>
             </div>
+
+            <RecipeSheet
+              brew={targetBrew}
+              beanName={data.name}
+              open={recipeOpen && targetBrew != null}
+              onClose={() => setRecipeOpen(false)}
+            />
           </Stack>
         )
       }}
@@ -235,15 +257,26 @@ function LogHead() {
   )
 }
 
-function LogRow({ brew, isLatest }: { brew: BrewLogEntry; isLatest: boolean }) {
+function LogRow({
+  brew,
+  isLatest,
+  onOpenRecipe,
+}: {
+  brew: BrewLogEntry
+  isLatest: boolean
+  onOpenRecipe: () => void
+}) {
   const cell = 'font-sans text-[0.9375rem] tabular-nums text-ink'
   return (
     <div
       className="border-b border-line px-[14px] py-2.5"
       style={{
-        background: isLatest
-          ? 'color-mix(in srgb, var(--color-ember) 12%, transparent)'
-          : 'transparent',
+        background:
+          brew.isTarget
+            ? 'color-mix(in srgb, var(--color-ember) 20%, transparent)'
+            : isLatest
+              ? 'color-mix(in srgb, var(--color-ember) 12%, transparent)'
+              : 'transparent',
       }}
     >
       <div className="grid items-center gap-[10px]" style={{ gridTemplateColumns: LOG_COLS }}>
@@ -253,8 +286,21 @@ function LogRow({ brew, isLatest }: { brew: BrewLogEntry; isLatest: boolean }) {
         <span className={`${cell} font-semibold text-ember`}>1:{brew.ratio}</span>
         <span className={cell}>{brew.timeS}<span className="text-ink-faint">s</span></span>
         <span className={cell}>{brew.waterTempC}<span className="text-ink-faint">°</span></span>
-        <Row gap="sm" justify="between">
-          <Badge tone={resultTone(brew.result)}>{brew.result}</Badge>
+        <Row gap="sm" align="center" justify="between">
+          <Row gap="sm" align="center">
+            {brew.isTarget ? (
+              <button
+                type="button"
+                onClick={onOpenRecipe}
+                aria-label="Target recipe — open card"
+                className="inline-flex items-center gap-1 rounded-full bg-ember/15 px-2 py-0.5 text-ember"
+              >
+                <Target className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">Target</span>
+              </button>
+            ) : null}
+            {brew.result ? <Badge tone={resultTone(brew.result)}>{brew.result}</Badge> : null}
+          </Row>
           <Text size="xs" tone="faint">{brew.dateLabel}</Text>
         </Row>
       </div>

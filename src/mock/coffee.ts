@@ -48,6 +48,7 @@ const BEANS: Record<string, CoffeeBean> = {
         ratio: 2.2,
         result: 'Sour / Under',
         adjustment: 'Grind finer, aim for ~30s',
+        isTarget: false,
       },
       {
         id: 'BR-2',
@@ -61,6 +62,7 @@ const BEANS: Record<string, CoffeeBean> = {
         ratio: 2.1,
         result: 'Balanced',
         adjustment: 'Keep. Maybe -0.5g dose to open florals.',
+        isTarget: true,
       },
     ],
   },
@@ -121,6 +123,7 @@ export function mockLogBrew(input: BrewLogInput): BrewLogEntry {
     result: input.result,
     adjustment: input.adjustment,
     notes: input.notes,
+    isTarget: false,
   }
   // Newest first, matching how the detail screen renders the log.
   bean.brews = [entry, ...bean.brews]

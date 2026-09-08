@@ -15,7 +15,7 @@ import { createBean } from '@/lib/data'
 
 const PROCESSES = ['Washed', 'Natural', 'Honey', 'Anaerobic', 'Other'] as const
 const ROAST_LEVELS = ['Light', 'Medium-Light', 'Medium', 'Medium-Dark', 'Dark'] as const
-const BREW_METHODS = ['Espresso', 'V60', 'AeroPress', 'French Press', 'Moka', 'Cold Brew'] as const
+const ROAST_PROFILES = ['Espresso', 'Filter', 'Omniroast'] as const
 const STATUSES = ['Sealed', 'Open', 'Finished'] as const
 
 /**
@@ -129,10 +129,10 @@ export function NewBean() {
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <Field label="Roast date">
-              <Input type="date" value={roastDate} onChange={(e) => setRoastDate(e.target.value)} />
+              <Input type="date" className="min-w-0" value={roastDate} onChange={(e) => setRoastDate(e.target.value)} />
             </Field>
             <Field label="Purchase date">
-              <Input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+              <Input type="date" className="min-w-0" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
             </Field>
             <Field label="Weight (g)">
               <Input type="number" inputMode="numeric" value={weightG} onChange={(e) => setWeightG(e.target.value)} placeholder="250" />
@@ -142,9 +142,9 @@ export function NewBean() {
             </Field>
           </div>
 
-          <Field label="Brew methods">
+          <Field label="Roast profile">
             <Row gap="sm" className="flex-wrap">
-              {BREW_METHODS.map((m) => (
+              {ROAST_PROFILES.map((m) => (
                 <Button
                   key={m}
                   size="sm"
@@ -220,7 +220,9 @@ function numberOrUndefined(raw: string): number | undefined {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Stack gap="xs">
+    // min-w-0 lets the grid cell shrink; without it a WebKit date input's fixed
+    // intrinsic width blows the column out and the form scrolls sideways.
+    <Stack gap="xs" className="min-w-0">
       <Text size="sm" tone="faint">
         {label}
       </Text>

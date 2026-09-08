@@ -143,6 +143,8 @@ export const BrewLogEntrySchema = z.object({
   /** What to change on the next brew. */
   adjustment: z.string().optional(),
   notes: z.string().optional(),
+  /** True when this brew is the bean's target recipe (Notion "Referenced by" set). */
+  isTarget: z.boolean().default(false),
 })
 
 /** Lightweight bean entry for the catalog grid. */
