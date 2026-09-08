@@ -198,6 +198,19 @@
     height: 0;
   }
 
+  /* WebKit gives date inputs a fixed intrinsic width that ignores width:100%
+     inside a grid/flex cell, forcing the whole column wide (New bean form).
+     Stripping the native appearance lets them fill and shrink like any input;
+     tapping still opens the system date picker on the hub. */
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
