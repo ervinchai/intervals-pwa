@@ -2,6 +2,7 @@
   "windmillBaseUrl": "https://windmill.example.com",
   "windmillWorkspace": "intervals",
   "windmillToken": "",
+  "railsBaseUrl": "https://api.example.com",
   "haBaseUrl": "https://ha.example.com",
   "haToken": "",
   "activeScreenEntity": "input_text.active_screen",

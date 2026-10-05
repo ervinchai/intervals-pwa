@@ -15,6 +15,8 @@ export const ConfigSchema = z.object({
   windmillWorkspace: z.string().default(''),
   /** Windmill token sent as a Bearer header on every call. Never bundled — read from config.json at boot. */
   windmillToken: z.string().default(''),
+  /** Base URL of the Rails API, no trailing slash, e.g. https://api.example.com. Label printing streams from here. */
+  railsBaseUrl: z.string().url().or(z.literal('')).default(''),
   /** Home Assistant base URL, e.g. https://ha.example.com */
   haBaseUrl: z.string().url().or(z.literal('')),
   /** HA long-lived access token for the WebSocket client. */
@@ -53,6 +55,7 @@ const FALLBACK: Config = {
   windmillBaseUrl: '',
   windmillWorkspace: '',
   windmillToken: '',
+  railsBaseUrl: '',
   haBaseUrl: '',
   haToken: '',
   activeScreenEntity: 'input_text.active_screen',

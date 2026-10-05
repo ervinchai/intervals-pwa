@@ -17,10 +17,9 @@ import {
   type CoffeeCollection,
   type MealPlan,
   type PrintLabelInput,
-  type PrintResult,
-  PrintResultSchema,
-  type PrinterStatus,
-  PrinterStatusSchema,
+  PrintStatusEventSchema,
+  PrintStreamErrorSchema,
+  type PrintReason,
   type Recipe,
   type RecipeCollection,
 } from '@/lib/contracts'
@@ -32,6 +31,8 @@ import {
   mockSetTargetBrew,
 } from '@/mock/coffee'
 import { MOCK_BRIEFING, MOCK_MEAL_PLAN, MOCK_RECIPES } from '@/mock/data'
+
+import { readSse } from '@/lib/sse'
 
 import type { ZodType } from 'zod'
 
@@ -193,30 +194,69 @@ export async function createBean(input: BeanCreateInput): Promise<CoffeeBeanSumm
   return runScript('intervals/bean_create', { ...input }, CoffeeBeanSummarySchema)
 }
 
-/**
- * Send a rendered label to the Niimbot printer via the backend.
- *
- * The Windmill script (`intervals/print_label`) holds the HA credentials and
- * maps this generic payload onto the actual Home Assistant service call — the
- * PWA never touches the HA token, and the exact service name lives server-side
- * so it can change without a client redeploy. This is an action, not a resource,
- * so it isn't in `mockOverrides`; in mock mode it just resolves ok, letting the
- * button be exercised without a live backend.
- */
-export async function printLabel(input: PrintLabelInput): Promise<PrintResult> {
-  if (getConfig().useMockData) return mock({ ok: true })
-  return runScript('intervals/print_label', { ...input }, PrintResultSchema)
-}
+/** How a print ended. A failure carries a neutral reason the UI turns into copy. */
+export type PrintOutcome = { ok: true } | { ok: false; reason: PrintReason }
 
 /**
- * Read the printer's live Bluetooth connectivity from the backend (which mirrors
- * a Home Assistant sensor). The print flow polls this while a print is in flight
- * — `printLabel` only resolves once the job finishes — to reflect the
- * connecting → printing handoff. Like {@link printLabel} it's an action-adjacent
- * read, not a cached resource, so it's gated on `useMockData` rather than
- * `mockOverrides`; in mock mode it reports connected so the flow still advances.
+ * Send a rendered label to the printer through the Rails API.
+ *
+ * `POST /prints` replies with Server-Sent Events: `connecting → printing →
+ * completed | error`. `EventSource` can't POST, so the stream is read with
+ * `fetch()`. `onState` hears the in-progress steps; the returned promise
+ * settles with the outcome. A stream that ends without `completed` or `error`
+ * was cut off, so it counts as `connection_lost`. This is an action, not a
+ * resource, so it isn't in `mockOverrides`; in mock mode it plays a short
+ * fake print.
  */
-export async function fetchPrinterStatus(): Promise<PrinterStatus> {
-  if (getConfig().useMockData) return mock({ connected: true })
-  return runScript('intervals/printer_status', {}, PrinterStatusSchema)
+export async function printLabel(
+  input: PrintLabelInput,
+  onState: (state: 'connecting' | 'printing') => void,
+): Promise<PrintOutcome> {
+  if (getConfig().useMockData) {
+    onState('connecting')
+    await mock(null)
+    onState('printing')
+    await mock(null)
+    return { ok: true }
+  }
+
+  const { railsBaseUrl } = getConfig()
+  if (!railsBaseUrl) {
+    console.error('[intervals] railsBaseUrl is not configured; cannot print')
+    return { ok: false, reason: 'service_unavailable' }
+  }
+
+  try {
+    const res = await fetch(`${railsBaseUrl}/prints`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (!res.ok || !res.body) {
+      console.error(`[intervals] POST /prints returned ${res.status}`)
+      return { ok: false, reason: 'service_unavailable' }
+    }
+
+    for await (const { event, data } of readSse(res.body)) {
+      if (event === 'error') {
+        const parsed = PrintStreamErrorSchema.safeParse(JSON.parse(data))
+        return { ok: false, reason: parsed.success ? parsed.data.reason : 'service_unavailable' }
+      }
+      const parsed = PrintStatusEventSchema.safeParse(JSON.parse(data))
+      if (!parsed.success) {
+        console.error('[intervals] print status failed its contract', parsed.error.issues)
+        continue
+      }
+      const { state, reason } = parsed.data
+      if (state === 'completed') return { ok: true }
+      if (state === 'error') return { ok: false, reason: reason ?? 'printer_error' }
+      onState(state)
+    }
+  } catch (err) {
+    console.error('[intervals] print stream failed', err)
+    return { ok: false, reason: 'connection_lost' }
+  }
+
+  // The stream closed with no terminal event: the connection dropped.
+  return { ok: false, reason: 'connection_lost' }
 }

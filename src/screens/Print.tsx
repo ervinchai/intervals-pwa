@@ -28,7 +28,7 @@ export function Print() {
   // Caption is rich text, stored as the editor's raw HTML.
   const [captionHtml, setCaptionHtml] = useState('')
   const [copied, setCopied] = useState(false)
-  const { state, print, dismiss } = usePrintFlow()
+  const { state, reason, print, dismiss } = usePrintFlow()
 
   const label = useMemo<LabelInput>(
     () => ({ payload, caption: htmlToRichText(captionHtml) }),
@@ -116,7 +116,7 @@ export function Print() {
         </div>
       </div>
 
-      <PrintStatusPopup state={state} onDismiss={dismiss} />
+      <PrintStatusPopup state={state} reason={reason} onDismiss={dismiss} />
     </Stack>
   )
 }

@@ -228,19 +228,27 @@ export const PrintLabelInputSchema = z.object({
   imageBase64: z.string(),
 })
 
-/** Result of a print request. `ok` is the only field screens depend on. */
-export const PrintResultSchema = z.object({
-  ok: z.boolean(),
-  detail: z.string().optional(),
+/**
+ * Why a print failed. Provider-neutral, so the PWA never changes when the
+ * printer provider does; the Rails README lists them.
+ */
+export const PrintReasonSchema = z.enum([
+  'printer_asleep',
+  'printer_unreachable',
+  'printer_error',
+  'connection_lost',
+  'service_unavailable',
+])
+
+/** One `status` event from the Rails `POST /prints` stream. */
+export const PrintStatusEventSchema = z.object({
+  state: z.enum(['connecting', 'printing', 'completed', 'error']),
+  reason: PrintReasonSchema.optional(),
 })
 
-/**
- * Live printer connectivity, mirrored from Home Assistant. Since a print blocks
- * until it finishes, the print flow polls this to show the connect → print step;
- * `connected` is the only field the UI reads. */
-export const PrinterStatusSchema = z.object({
-  connected: z.boolean(),
-  detail: z.string().optional(),
+/** The last `error` event, sent when the server fails unexpectedly mid-stream. */
+export const PrintStreamErrorSchema = z.object({
+  reason: PrintReasonSchema.default('service_unavailable'),
 })
 
 export type Ingredient = z.infer<typeof IngredientSchema>
@@ -262,5 +270,5 @@ export type CoffeeCollection = z.infer<typeof CoffeeCollectionSchema>
 export type BrewLogInput = z.infer<typeof BrewLogInputSchema>
 export type BeanCreateInput = z.infer<typeof BeanCreateInputSchema>
 export type PrintLabelInput = z.infer<typeof PrintLabelInputSchema>
-export type PrintResult = z.infer<typeof PrintResultSchema>
-export type PrinterStatus = z.infer<typeof PrinterStatusSchema>
+export type PrintReason = z.infer<typeof PrintReasonSchema>
+export type PrintStatusEvent = z.infer<typeof PrintStatusEventSchema>

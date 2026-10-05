@@ -44,11 +44,12 @@ stay out of the shipped assets). Copy `public/config.example.json` to
 | `windmillBaseUrl`   | Windmill instance URL (no trailing slash)            |
 | `windmillWorkspace` | Workspace id the `intervals/` scripts live in        |
 | `windmillToken`     | Windmill token, sent as `Authorization: Bearer`      |
+| `railsBaseUrl`      | Rails API URL (no trailing slash); label printing streams from `POST /prints` |
 | `haBaseUrl`         | Home Assistant URL                                   |
 | `haToken`           | HA long-lived token for the WebSocket client         |
 | `useMockData`       | Read from `src/mock` instead of calling Windmill     |
 | `mockOverrides`     | Per-endpoint override of `useMockData`               |
 
 For the Cloudflare Pages build, `scripts/gen-config.mjs` writes `config.json`
-from `WINDMILL_*` / `HA_*` environment variables at build time
+from `WINDMILL_*` / `RAILS_BASE_URL` / `HA_*` environment variables at build time
 (`npm run build:pages`).

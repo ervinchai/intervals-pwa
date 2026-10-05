@@ -45,7 +45,7 @@ export function PrintLabelDialog({
   onClose: () => void
   title?: string
 }) {
-  const { state, print, dismiss } = usePrintFlow()
+  const { state, reason, print, dismiss } = usePrintFlow()
 
   // Reset the flow and close together, so `open` and the print state flip in one
   // batch — nothing flashes on the way out.
@@ -107,7 +107,7 @@ export function PrintLabelDialog({
 
       {/* Status layer — self-hides while idle, sits above the preview otherwise.
           Tapping a success closes the dialog; tapping an error returns here. */}
-      <PrintStatusPopup state={state} onDismiss={dismissStatus} />
+      <PrintStatusPopup state={state} reason={reason} onDismiss={dismissStatus} />
     </>
   )
 }

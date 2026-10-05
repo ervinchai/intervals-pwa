@@ -26,6 +26,7 @@ const config = {
   windmillBaseUrl: process.env.WINDMILL_BASE_URL ?? '',
   windmillWorkspace: process.env.WINDMILL_WORKSPACE ?? '',
   windmillToken: process.env.WINDMILL_TOKEN ?? '',
+  railsBaseUrl: process.env.RAILS_BASE_URL ?? '',
   haBaseUrl: process.env.HA_BASE_URL ?? '',
   haToken: process.env.HA_TOKEN ?? '',
   activeScreenEntity: process.env.ACTIVE_SCREEN_ENTITY ?? 'input_text.active_screen',

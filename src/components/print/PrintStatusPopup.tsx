@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Text } from '@/components/ui'
 
 import { PrintStatusContent } from './PrintStatusContent'
+import type { PrintReason } from '@/lib/contracts'
+
 import { type PrintState } from './usePrintFlow'
 
 /**
@@ -19,9 +21,11 @@ import { type PrintState } from './usePrintFlow'
  */
 export function PrintStatusPopup({
   state,
+  reason,
   onDismiss,
 }: {
   state: PrintState
+  reason?: PrintReason | null
   onDismiss: () => void
 }) {
   const open = state !== 'idle'
@@ -67,7 +71,7 @@ export function PrintStatusPopup({
                 transition={{ duration: 0.15, ease: 'easeInOut' }}
                 className="flex flex-col items-center gap-4"
               >
-                <PrintStatusContent state={shown} />
+                <PrintStatusContent state={shown} reason={reason} />
                 {terminal && (
                   <Text tone="faint" className="text-sm">
                     Tap anywhere to dismiss
