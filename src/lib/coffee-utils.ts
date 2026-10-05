@@ -90,3 +90,15 @@ export function parseTarget(target: string | null | undefined) {
   const parts = target.split('·').map((s) => s.trim())
   return { grind: parts[0], dose: parts[1], yield: parts[2], time: parts[3] }
 }
+
+/**
+ * The cup profile axes — descriptive 1–5 continuums recorded alongside Result.
+ * Shared between the entry form (BrewSession) and the log readout (BeanView)
+ * so the labels/endpoints never drift between the two.
+ */
+export const CUP_AXES = [
+  { key: 'body', label: 'Body', low: 'Thin', high: 'Full' },
+  { key: 'sweetness', label: 'Sweetness', low: 'Low', high: 'High' },
+  { key: 'acidity', label: 'Acidity', low: 'Low', high: 'High' },
+  { key: 'aftertaste', label: 'Aftertaste', low: 'Short', high: 'Lingering' },
+] as const

@@ -140,6 +140,15 @@ export const BrewLogEntrySchema = z.object({
   /** Yield ÷ dose, computed by Notion; shown as e.g. 2.1 for a 1:2.1 ratio. */
   ratio: z.number().optional(),
   result: BrewResultSchema.optional(),
+  /**
+   * Cup profile — descriptive axes, not a verdict. Each is a 1–5 position on a
+   * named continuum (e.g. Body: Thin(1)–Full(5)) with no "good" end, recorded
+   * independently instead of folded into one rating.
+   */
+  body: z.number().min(1).max(5).optional(),
+  sweetness: z.number().min(1).max(5).optional(),
+  acidity: z.number().min(1).max(5).optional(),
+  aftertaste: z.number().min(1).max(5).optional(),
   /** What to change on the next brew. */
   adjustment: z.string().optional(),
   notes: z.string().optional(),
@@ -192,6 +201,10 @@ export const BrewLogInputSchema = z.object({
   timeS: z.number().optional(),
   waterTempC: z.number().optional(),
   result: BrewResultSchema.optional(),
+  body: z.number().min(1).max(5).optional(),
+  sweetness: z.number().min(1).max(5).optional(),
+  acidity: z.number().min(1).max(5).optional(),
+  aftertaste: z.number().min(1).max(5).optional(),
   adjustment: z.string().optional(),
   notes: z.string().optional(),
 })

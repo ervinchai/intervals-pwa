@@ -13,6 +13,8 @@ const GAP = {
   md: 'gap-3',
   lg: 'gap-3.5',
   xl: 'gap-5',
+  "2xl": 'gap-8',
+  "3xl": 'gap-10',
 } as const
 
 const PAD = {

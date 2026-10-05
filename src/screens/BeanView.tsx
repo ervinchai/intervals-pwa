@@ -20,6 +20,7 @@ import type { BrewLogEntry, BrewResult, CoffeeBean } from '@/lib/contracts'
 import { fetchCoffeeBean, setTargetBrew } from '@/lib/data'
 import { beanLabel } from '@/lib/labels'
 import {
+  CUP_AXES,
   daysOffRoast,
   formatBrewTime,
   formatClockTime,
@@ -115,6 +116,13 @@ export function BeanView({ beanId }: { beanId: string }) {
                 >
                   <Printer className="h-5 w-5" />
                 </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate({ name: 'brew', beanId: data.id })}
+                >
+                  <Plus className="mr-1 h-4 w-4" />Add brew log
+                </Button>
               </Row>
             </Stack>
 
@@ -179,8 +187,36 @@ export function BeanView({ beanId }: { beanId: string }) {
                 </Card>
               </Stack>
 
-              {/* Right: bean facts by default; the tapped brew's detail when viewing */}
+              {/* Right: target recipe pinned at top as a fixed anchor — always the
+                  same fact regardless of what's below — then bean facts by
+                  default, or the tapped brew's detail when viewing one. */}
               <Stack gap="xl" className="min-h-0 overflow-y-auto pr-1">
+                {target ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={!targetBrew}
+                      onClick={() => targetBrew && setSelectedBrew(targetBrew)}
+                      className="text-left enabled:cursor-pointer"
+                      aria-label={targetBrew ? 'View target recipe' : undefined}
+                    >
+                      <Stack gap="sm">
+                        <Row gap="xs" align="center">
+                          <Target className="h-3.5 w-3.5 text-ember" />
+                          <Heading role="label" as="span" tone="faint">Target Recipe</Heading>
+                        </Row>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                          <DetailStat label="grind" value={target.grind} accent />
+                          <DetailStat label="in" value={targetDose} accent />
+                          <DetailStat label="out" value={targetYield} accent />
+                          <DetailStat label="time" value={targetTime} accent />
+                        </div>
+                      </Stack>
+                    </button>
+                    <div className="border-t border-line" />
+                  </>
+                ) : null}
+
                 {selectedBrew ? (
                   <BrewDetail
                     brew={selectedBrew}
@@ -213,40 +249,6 @@ export function BeanView({ beanId }: { beanId: string }) {
                     </FactGroup>
                   </>
                 )}
-
-                {target ? (
-                  <>
-                    <div className="border-t border-line" />
-                    <button
-                      type="button"
-                      disabled={!targetBrew}
-                      onClick={() => targetBrew && setSelectedBrew(targetBrew)}
-                      className="text-left enabled:cursor-pointer"
-                      aria-label={targetBrew ? 'View target recipe' : undefined}
-                    >
-                      <Stack gap="sm">
-                        <Row gap="xs" align="center">
-                          <Heading role="label" as="span" tone="faint">Target Recipe</Heading>
-                          {targetBrew ? <Target className="h-3.5 w-3.5 text-ember" /> : null}
-                        </Row>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                          <DetailStat label="grind" value={target.grind} accent />
-                          <DetailStat label="in" value={targetDose} accent />
-                          <DetailStat label="out" value={targetYield} accent />
-                          <DetailStat label="time" value={targetTime} accent />
-                        </div>
-                      </Stack>
-                    </button>
-                  </>
-                ) : null}
-
-                <Button
-                  variant="quiet"
-                  size="sm"
-                  onClick={() => navigate({ name: 'brew', beanId: data.id })}
-                >
-                  <Plus className="mr-1 h-4 w-4" />Add brew log
-                </Button>
               </Stack>
             </div>
           </Stack>
@@ -564,6 +566,52 @@ function resultTone(result: BrewResult | undefined): 'sage' | 'clay' | 'neutral'
   return 'neutral'
 }
 
+/** Result as a line item's text color — undefined (Sour/Under) leaves the
+ *  Text component's own ink tone in place. */
+const RESULT_TEXT_COLOR: Record<BrewResult, string | undefined> = {
+  'Sour / Under': undefined,
+  Balanced: 'var(--color-sage)',
+  'Bitter / Over': 'var(--color-clay)',
+}
+
+function hasCupProfile(brew: BrewLogEntry): boolean {
+  return CUP_AXES.some((a) => brew[a.key] != null)
+}
+
+/**
+ * Cup profile readout — the descriptive axes recorded alongside Result.
+ * Dots, not a bar or number: a position on a named continuum, not a score, so
+ * nothing here reads as "higher is better." Axes with no value are omitted. */
+function CupProfile({ brew }: { brew: BrewLogEntry }) {
+  const axes = CUP_AXES.filter((a) => brew[a.key] != null)
+  if (!axes.length) return null
+  return (
+    <Stack gap="xs">
+      {axes.map((a) => {
+        const value = brew[a.key] as number
+        return (
+          <Row key={a.key} gap="sm" align="center" title={`${a.low} – ${a.high}`}>
+            <Text size="sm" tone="faint" className="w-20 shrink-0">
+              {a.label}
+            </Text>
+            <Row gap="xs" align="center">
+              {Array.from({ length: 5 }, (_, i) => (
+                <span
+                  key={i}
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    backgroundColor: i < value ? 'var(--color-ink)' : 'var(--color-line)',
+                  }}
+                />
+              ))}
+            </Row>
+          </Row>
+        )
+      })}
+    </Stack>
+  )
+}
+
 /**
  * The tapped brew, shown in the right pane in place of the bean facts — the
  * master-detail half of the log. Recipe numbers read at a glance; result and
@@ -584,9 +632,9 @@ function BrewDetail({
     <Stack gap="md">
       <Row gap="sm" align="center">
         <Stack gap="none" className="min-w-0">
-          <Heading role="label" as="span" tone="faint">
-            {brew.isTarget ? 'Target recipe' : 'Brew'}
-          </Heading>
+          <Row gap="xs" align="center">
+            <Heading role="label" as="span" tone="faint">Brew</Heading>
+          </Row>
           <Text size="sm">{formatShortDate(brew.createdAt)} · {brew.method}</Text>
         </Stack>
         <Spacer />
@@ -595,18 +643,37 @@ function BrewDetail({
         </Button>
       </Row>
 
+      {/* Ratio isn't repeated here — it's already the accented figure in the
+          row you tapped, still visible in the log to the left. */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         <DetailStat label="grind" value={brew.grind} />
-        <DetailStat label="ratio" value={brew.ratio != null ? `1:${brew.ratio}` : undefined} accent />
         <DetailStat label="dose" value={fmt(brew.doseG, 'g')} />
         <DetailStat label="yield" value={fmt(brew.yieldG, 'g')} />
         <DetailStat label="time" value={formatBrewTime(brew.timeS)} />
         <DetailStat label="temp" value={fmt(brew.waterTempC, '°')} />
+        {brew.isTarget ? (
+            <div className="flex items-end justify-end text-xs">
+              <div className="flex items-center gap-x-1 text-ember">
+                <Target className="h-4 w-4" />
+                Target Recipe
+              </div>
+            </div>
+        ) : null}
       </div>
 
-      {(brew.result || brew.adjustment || brew.notes) && (
+      {(brew.result || hasCupProfile(brew) || brew.adjustment || brew.notes) && (
         <Stack gap="sm" className="border-t border-line pt-3">
-          {brew.result ? <Badge tone={resultTone(brew.result)}>{brew.result}</Badge> : null}
+          {brew.result ? (
+            <Row gap="sm" align="center">
+              <Text size="sm" tone="faint" className="w-20 shrink-0">
+                Result
+              </Text>
+              <Text size="sm" style={{ color: RESULT_TEXT_COLOR[brew.result] }}>
+                {brew.result}
+              </Text>
+            </Row>
+          ) : null}
+          {hasCupProfile(brew) ? <CupProfile brew={brew} /> : null}
           {brew.adjustment ? <Text size="sm" tone="dim">→ {brew.adjustment}</Text> : null}
           {brew.notes ? <Text size="sm" tone="dim">{brew.notes}</Text> : null}
         </Stack>
