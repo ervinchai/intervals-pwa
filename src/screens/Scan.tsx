@@ -56,7 +56,9 @@ function loadFacing(): Facing {
 export function Scan() {
   const { navigate } = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [status, setStatus] = useState<Status>({ kind: 'starting' })
+  const [status, setStatus] = useState<Status>(() =>
+    typeof navigator.mediaDevices?.getUserMedia === 'function' ? { kind: 'starting' } : { kind: 'unsupported' },
+  )
   const [facing, setFacing] = useState<Facing>(loadFacing)
   const [popup, setPopup] = useState<Popup | null>(null)
 
@@ -113,10 +115,8 @@ export function Scan() {
   useEffect(() => {
     activeRef.current = true
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStatus({ kind: 'unsupported' })
-      return
-    }
+    // No camera API: the status already says so (see the initial state).
+    if (!navigator.mediaDevices?.getUserMedia) return
 
     let stream: MediaStream | null = null
     let rafId = 0

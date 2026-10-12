@@ -1,5 +1,5 @@
 import { ArrowLeft, Plus, Printer, Target, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
 import { PrintLabelDialog } from '@/components/print'
@@ -37,7 +37,8 @@ const DATE_COL_WIDTH = 28
 const STALE_BUFFER_DAYS = 1
 
 export function BeanView({ beanId }: { beanId: string }) {
-  const { back, canGoBack, navigate } = useRouter()
+  const { navigate } = useRouter()
+  const goBack = () => navigate({ name: 'beans' })
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
   const [printing, setPrinting] = useState(false)
   const [selectedBrew, setSelectedBrew] = useState<BrewLogEntry | null>(null)
@@ -45,20 +46,25 @@ export function BeanView({ beanId }: { beanId: string }) {
   // line and each brew's isTarget flag update in place — a full `reload()`
   // would flash the whole screen back to its loading skeleton. Cleared
   // whenever the underlying fetch produces a new bean (bean switch or an
-  // actual reload), so it never outlives the data it patched.
-  const [beanOverride, setBeanOverride] = useState<CoffeeBean | null>(null)
+  // actual reload), so it never outlives the data it patched: it remembers which fetched
+  // bean it patched (`source`) and is used only while that is still the current one.
+  const [beanOverride, setBeanOverride] = useState<{ source: CoffeeBean; bean: CoffeeBean } | null>(null)
   const [marking, setMarking] = useState(false)
-
-  useEffect(() => {
-    setBeanOverride(null)
-  }, [bean.data])
+  // Why the last "Set as target" failed, kept with the brew it was for so it goes away
+  // when another brew is opened.
+  const [markError, setMarkError] = useState<{ brewId: string; message: string } | null>(null)
 
   async function handleMarkTarget(brew: BrewLogEntry) {
+    const source = bean.data
+    if (!source) return
     setMarking(true)
+    setMarkError(null)
     try {
       const updated = await setTargetBrew(beanId, brew.id)
-      setBeanOverride(updated)
+      setBeanOverride({ source, bean: updated })
       setSelectedBrew(updated.brews.find((b) => b.id === brew.id) ?? null)
+    } catch (err) {
+      setMarkError({ brewId: brew.id, message: err instanceof Error ? err.message : 'Could not set the target recipe.' })
     } finally {
       setMarking(false)
     }
@@ -72,7 +78,7 @@ export function BeanView({ beanId }: { beanId: string }) {
       skeleton={<BeanSkeleton />}
     >
       {(fetched) => {
-        const data = beanOverride ?? fetched
+        const data = beanOverride && beanOverride.source === fetched ? beanOverride.bean : fetched
         const target = parseTarget(data.targetRecipe)
         // target.dose/.yield carry their unit inline (e.g. "18g in"); strip
         // the trailing word so DetailStat's own number+label pairing doesn't
@@ -87,17 +93,15 @@ export function BeanView({ beanId }: { beanId: string }) {
         return (
           <Stack gap="lg" className="h-full min-h-0 overflow-hidden">
             <Stack gap="xs">
-              {canGoBack ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-fit -ml-3 px-3"
-                  onClick={back}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Beans
-                </Button>
-              ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-fit -ml-3 px-3"
+                onClick={goBack}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Beans
+              </Button>
               <Row gap="md">
                 <Stack gap="none" className="min-w-0">
                   <Heading role="hero" level={1} className="min-w-0">
@@ -223,6 +227,7 @@ export function BeanView({ beanId }: { beanId: string }) {
                     onBack={() => setSelectedBrew(null)}
                     onMarkTarget={() => handleMarkTarget(selectedBrew)}
                     marking={marking}
+                    error={markError?.brewId === selectedBrew.id ? markError.message : null}
                   />
                 ) : (
                   <>
@@ -622,11 +627,13 @@ function BrewDetail({
   onBack,
   onMarkTarget,
   marking,
+  error,
 }: {
   brew: BrewLogEntry
   onBack: () => void
   onMarkTarget: () => void
   marking: boolean
+  error: string | null
 }) {
   return (
     <Stack gap="md">
@@ -683,6 +690,11 @@ function BrewDetail({
         <Target className="mr-0.5 h-4 w-4" />
         {brew.isTarget ? 'Already set as target recipe' : (marking ? 'Updating…' : 'Set as target recipe')}
       </Button>
+      {error ? (
+        <div role="alert">
+          <Text size="sm" className="text-clay">{error}</Text>
+        </div>
+      ) : null}
     </Stack>
   )
 }

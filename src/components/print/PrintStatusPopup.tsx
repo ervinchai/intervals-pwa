@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Text } from '@/components/ui'
 
@@ -30,11 +30,10 @@ export function PrintStatusPopup({
 }) {
   const open = state !== 'idle'
   // Hold the last non-idle state so content stays rendered through the backdrop
-  // fade-out instead of blanking the instant we return to idle.
+  // fade-out instead of blanking the instant we return to idle. Updated while rendering, which
+  // React allows for a component's own state, so there is no frame with the old state.
   const [shown, setShown] = useState<Exclude<PrintState, 'idle'>>('connecting')
-  useEffect(() => {
-    if (state !== 'idle') setShown(state)
-  }, [state])
+  if (state !== 'idle' && state !== shown) setShown(state)
 
   // Only a settled print is dismissible; a tap mid-print must not cancel it.
   const terminal = shown === 'sent' || shown === 'error'
