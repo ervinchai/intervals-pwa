@@ -15,7 +15,10 @@ export const ConfigSchema = z.object({
   windmillWorkspace: z.string().default(''),
   /** Windmill token sent as a Bearer header on every call. Never bundled — read from config.json at boot. */
   windmillToken: z.string().default(''),
-  /** Base URL of the Rails API, no trailing slash, e.g. https://api.example.com. Label printing streams from here. */
+  /**
+   * Base URL of the Rails API, no trailing slash, e.g. https://api.example.com. Label printing streams
+   * from here. When set, coffee reads and writes go here too, instead of to the Windmill scripts.
+   */
   railsBaseUrl: z.string().url().or(z.literal('')).default(''),
   /** Home Assistant base URL, e.g. https://ha.example.com */
   haBaseUrl: z.string().url().or(z.literal('')),

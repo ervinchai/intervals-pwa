@@ -18,6 +18,9 @@ import { hardReload } from '@/lib/pwa'
 export function Settings() {
   const config = getConfig()
   const [reloading, setReloading] = useState(false)
+  // Everything is moving to the Rails API. Until `railsBaseUrl` is set, coffee still falls back
+  // to Windmill, so name the one in use rather than always naming Rails.
+  const endpoint = config.railsBaseUrl || config.windmillBaseUrl
 
   function reload() {
     setReloading(true)
@@ -42,10 +45,10 @@ export function Settings() {
                 {config.useMockData ? 'Mock data' : 'Live'}
               </Badge>
             </SettingRow>
-            {!config.useMockData && config.windmillBaseUrl ? (
+            {!config.useMockData && endpoint ? (
               <SettingRow label="Endpoint">
                 <Text size="sm" tone="dim" className="truncate font-mono">
-                  {config.windmillBaseUrl}
+                  {endpoint}
                 </Text>
               </SettingRow>
             ) : null}
