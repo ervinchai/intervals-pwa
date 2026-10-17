@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { CupGauge, type GaugeTone } from '@/components/shot/CupGauge'
 import { FlowTrace, type Trace } from '@/components/shot/FlowTrace'
@@ -6,6 +6,7 @@ import { StopCard, type Cue } from '@/components/shot/StopCard'
 import { Button, Card, Heading, Row, Scrubber, Spacer, Stack, Text } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import {
+  FLOW_ENTER,
   NOT_FINISHED,
   NO_LATCH,
   flowRate,
@@ -14,6 +15,7 @@ import {
   readShot,
   targetState,
   trackFinish,
+  type Sample,
   type ShotReadout,
   type StopCue,
   type StopGuide,
@@ -100,7 +102,8 @@ export function PullStep({
   /** The water temperature in °C: not read by the scale, so it is set here, as on the by-hand screen. */
   tempC: number
   onTemp: (celsius: number) => void
-  onFinished: (result: { yieldG: number; targetG: number; timeS?: number }) => void
+  /** The shot is over: its numbers, and the flow over the whole shot for the overview (`traceOrigin`: the timer's start). */
+  onFinished: (result: { yieldG: number; targetG: number; timeS?: number; trace: Trace | null; traceOrigin: number | null }) => void
   /** Told when the pump goes on or off, so the screen around can hold back its own ways out mid-shot. */
   onRunningChange: (running: boolean) => void
 }) {
@@ -153,10 +156,19 @@ export function PullStep({
   const { finished, finishedWeight } = nextFinish
   // The shot time, to the second: how long the pump ran, or the time taken by hand; else none.
   const timeS = scale.shotSeconds === null ? undefined : Math.round(scale.shotSeconds)
+  // The flow over the whole shot, for the overview: from the timer's start (or 2 s before the first flow) to
+  // the end of the flow. Kept in a ref, refreshed after every render, so handing the shot on reads it
+  // without re-running each time a reading arrives.
+  const shotTrace = useRef<Trace | null>(null)
+  const traceOrigin = scale.timer.start
+  // Declared before the effect below, so after each render it runs first and that one reads it fresh.
+  useEffect(() => {
+    shotTrace.current = wholeShot(samples, traceOrigin, scale.flowEnd)
+  })
   useEffect(() => {
     if (!finished || finishedWeight === null) return
-    onFinished({ yieldG: Math.round(finishedWeight * 10) / 10, targetG: target, timeS })
-  }, [finished, finishedWeight, onFinished, target, timeS])
+    onFinished({ yieldG: Math.round(finishedWeight * 10) / 10, targetG: target, timeS, trace: shotTrace.current, traceOrigin })
+  }, [finished, finishedWeight, onFinished, target, timeS, traceOrigin])
 
   // Tapping the weight tares. Not while the pump runs: a stray tap must not wipe a shot.
   const canTare = phase !== 'running'
@@ -315,6 +327,19 @@ export function PullStep({
       </Row>
     </Stack>
   )
+}
+
+/** The flow over a whole shot, from the timer's start (else 2 s before the first flow) to the last flow. */
+function wholeShot(samples: readonly Sample[], timerStart: number | null, flowEnd: number | null): Trace | null {
+  if (flowEnd === null) return null
+  const firstFlow = samples.find((sample) => (sample.f ?? flowRate(samples, sample.t) ?? 0) >= FLOW_ENTER)?.t
+  const start = timerStart ?? (firstFlow === undefined ? null : firstFlow - 2000)
+  if (start === null || flowEnd <= start) return null
+  const points = samples
+    .filter((sample) => sample.t >= start && sample.t <= flowEnd)
+    .map((sample) => ({ t: sample.t, f: sample.f ?? flowRate(samples, sample.t) }))
+    .filter((point): point is { t: number; f: number } => point.f !== null)
+  return { start, windowMs: Math.max(flowEnd - start, TRACE_MS), points }
 }
 
 /** The line under "Ready", by where the pump signal comes from. */

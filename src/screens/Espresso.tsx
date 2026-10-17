@@ -2,15 +2,17 @@ import { ArrowLeft } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { useRouter, type ShotResult } from '@/app/router'
+import type { Trace } from '@/components/shot/FlowTrace'
 import { ManualStep } from '@/components/shot/ManualStep'
+import { OverviewStep } from '@/components/shot/OverviewStep'
 import { PullStep } from '@/components/shot/PullStep'
 import { SetupStep } from '@/components/shot/SetupStep'
 import { StepRail, type RailStep } from '@/components/shot/StepRail'
 import { AsyncScreen } from '@/components/ScreenState'
 import { Badge, Button, Heading, Row, Spacer, Stack, Text } from '@/components/ui'
 import type { CoffeeBean } from '@/lib/contracts'
-import { lastBrewTemp, numberIn, parseTarget, startingGrind, suggestGrind } from '@/lib/coffee-utils'
-import { fetchCoffeeBean } from '@/lib/data'
+import { lastBrewTemp, numberIn, parseTarget, saveBrewTemp, startingGrind, suggestGrind } from '@/lib/coffee-utils'
+import { fetchCoffeeBean, logBrew } from '@/lib/data'
 import { useResource } from '@/lib/useResource'
 
 /** The shot time to start from when the recipe has none, in seconds. It is only used when the shot is typed in. */
@@ -20,14 +22,15 @@ const FALLBACK_TIME_S = 28
 const FALLBACK_YIELD_G = 36
 
 /**
- * Making an espresso, as one flow with a rail across the top: Grind and dose, Pull, Rate. Each step is
+ * Making an espresso, as one flow with a rail across the top: Grind and dose, Pull, Overview. Each step is
  * one thing to do. The first shows how the last shot went, suggests which way to move the dial, and
  * takes the dose, typed in. The pull has two ways through, swapped with a switch: the scale under the
  * cup, which says when to stop and moves on by itself when the flow stops, or typing in the yield, time
- * and temperature by hand. Either ends in rating the shot, with everything already filled in. The rail
- * keeps what was settled in each step, so a glance says what went into the cup. Back on the rating comes
- * here again (`shot`), on the by-hand pull with the numbers kept. Once the scale has read a shot it is not
- * offered again: the reading is the starting point to edit.
+ * and temperature by hand. Either ends on the overview, always: the shot at a glance, saved from there as
+ * it is ("Save & close"), or rated first on the brew screen (a secondary action), or its numbers edited
+ * on the by-hand pull. The rail keeps what was settled in each step. Back on the rating comes here again
+ * (`shot`), on the overview. Once the scale has read a shot it is not offered again: the reading is the
+ * starting point to edit.
  */
 export function Espresso({ beanId, shot }: { beanId: string; shot?: ShotResult }) {
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
@@ -39,6 +42,9 @@ export function Espresso({ beanId, shot }: { beanId: string; shot?: ShotResult }
 }
 
 type PullMode = 'scale' | 'manual'
+
+/** A finished shot, for the overview: its numbers, and its flow over the shot when the scale read it. */
+type Finished = { shot: ShotResult; trace: Trace | null; traceOrigin: number | null }
 
 function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
   const { back, canGoBack, replace } = useRouter()
@@ -54,10 +60,14 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
   const last = bean.brews.find((brew) => brew.method === 'Espresso')
   const advice = suggestGrind(last, recipeGrind)
 
-  // Coming back from the rating (`shot`) reopens the pull, always by hand: a shot the scale has read is
-  // edited, not read again. The scale's own reading is kept (`scaleG`) so it can be put back.
-  const scaleG = shot?.scaleG
-  const [step, setStep] = useState(shot ? 1 : 0)
+  // Coming back from the rating (`shot`) reopens the overview. Editing goes to the pull, always by hand: a
+  // shot the scale has read is edited, not read again. The scale's own reading is kept (`scaleG`) so it can
+  // be put back. `result` is the finished shot the overview shows, with its flow when the scale read it.
+  const [result, setResult] = useState<Finished | null>(() => (shot ? { shot, trace: null, traceOrigin: null } : null))
+  const scaleG = result?.shot.scaleG
+  const [step, setStep] = useState(shot ? 2 : 0)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [mode, setMode] = useState<PullMode>(shot ? 'manual' : 'scale')
   // The pump is on: leaving the pull now would drop the shot, so every way out waits (the pull's own Back does too).
   const [pumping, setPumping] = useState(false)
@@ -70,34 +80,77 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
   const [handYield, setHandYield] = useState(() => shot?.yieldG ?? targetYield)
   const [handTime, setHandTime] = useState(() => shot?.timeS ?? numberIn(recipe?.time) ?? FALLBACK_TIME_S)
 
-  // The shot is over: on to rating it, with the whole shot carried across. It replaces this screen, so
-  // saving the brew goes back to the bean.
+  // The scale says the shot is over: on to the overview, with the whole shot and its flow.
   const handleFinished = useCallback(
-    (result: { yieldG: number; targetG: number }) => {
-      replace({ name: 'brew', beanId: bean.id, shot: { ...result, scaleG: result.yieldG, doseG: dose, grind, tempC: temp } })
+    (read: { yieldG: number; targetG: number; timeS?: number; trace: Trace | null; traceOrigin: number | null }) => {
+      const { trace, traceOrigin, ...numbers } = read
+      setResult({ shot: { ...numbers, scaleG: numbers.yieldG, doseG: dose, grind, tempC: temp }, trace, traceOrigin })
+      setStep(2)
     },
-    [replace, bean.id, dose, grind, temp],
+    [dose, grind, temp],
   )
 
-  // The numbers typed in by hand: on to rating the shot, with them filled in.
+  // The numbers typed in by hand: on to the overview, keeping the flow if the scale read this shot first.
   const handleHandDone = () => {
-    replace({
-      name: 'brew',
-      beanId: bean.id,
+    setResult((previous) => ({
       shot: { grind, doseG: dose, yieldG: handYield, targetG: targetYield, scaleG, timeS: handTime, tempC: temp, manual: true },
-    })
+      trace: previous?.trace ?? null,
+      traceOrigin: previous?.traceOrigin ?? null,
+    }))
+    setStep(2)
+  }
+
+  // Edit the finished shot's numbers on the by-hand pull.
+  const editShot = () => {
+    if (result) {
+      setHandYield(result.shot.yieldG)
+      if (result.shot.timeS !== undefined) setHandTime(Math.round(result.shot.timeS))
+    }
+    setMode('manual')
+    setStep(1)
+  }
+
+  // Rating is a second screen, in place of this one; its Back returns here, to the overview.
+  const rateShot = () => {
+    if (result) replace({ name: 'brew', beanId: bean.id, shot: result.shot })
+  }
+
+  // Save the brew as it is, with no rating, and go back to the bean.
+  const saveShot = async () => {
+    if (!result) return
+    const finished = result.shot
+    setSaving(true)
+    setSaveError(null)
+    saveBrewTemp(finished.tempC)
+    try {
+      await logBrew({
+        beanId: bean.id,
+        method: 'Espresso',
+        grind: finished.grind.toFixed(1),
+        doseG: finished.doseG,
+        yieldG: finished.yieldG,
+        timeS: finished.timeS === undefined ? undefined : Math.round(finished.timeS),
+        waterTempC: finished.tempC,
+      })
+      leave()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save the brew')
+      setSaving(false)
+    }
   }
 
   const steps: RailStep[] = [
     { label: 'Grind & dose', summary: step > 0 ? `${grind.toFixed(1)} · ${dose.toFixed(1)} g` : undefined },
-    { label: 'Pull' },
-    { label: 'Rate' },
+    { label: 'Pull', summary: step > 1 && result ? `${result.shot.yieldG.toFixed(1)} g` : undefined },
+    { label: 'Overview' },
   ]
+  // Back to the pull from the overview is an edit, by hand; back to grind & dose is as it was.
+  const jump = (index: number) => (index === 1 && result ? editShot() : setStep(index))
 
   return (
     <Stack gap="lg" className="h-full min-h-0">
       <Stack gap="xs">
-        <Button variant="ghost" size="sm" className="w-fit -ml-3 px-3" onClick={leave} disabled={pumping}>
+        <Button variant="ghost" size="sm" className="w-fit -ml-3 px-3" onClick={leave} disabled={pumping || saving}>
           <ArrowLeft className="h-3.5 w-3.5" />
           {bean.name}
         </Button>
@@ -126,7 +179,7 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
         </Row>
       </Stack>
 
-      <StepRail steps={steps} current={step} onJump={pumping ? undefined : setStep} />
+      <StepRail steps={steps} current={step} onJump={pumping || saving ? undefined : jump} />
 
       {step === 0 ? (
         <SetupStep
@@ -140,6 +193,17 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
           last={last}
           advice={advice}
           onNext={() => setStep(1)}
+        />
+      ) : step === 2 && result ? (
+        <OverviewStep
+          shot={result.shot}
+          trace={result.trace}
+          traceOrigin={result.traceOrigin}
+          saving={saving}
+          error={saveError}
+          onEdit={editShot}
+          onRate={rateShot}
+          onSave={() => void saveShot()}
         />
       ) : mode === 'scale' ? (
         <PullStep

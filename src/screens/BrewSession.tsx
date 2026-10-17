@@ -210,10 +210,11 @@ function Session({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
 
       {shot ? (
         <StepRail
-          current={2}
+          current={3}
           steps={[
             { label: 'Grind & dose', summary: `${shot.grind.toFixed(1)} · ${shot.doseG.toFixed(1)} g` },
             { label: 'Pull', summary: `${shot.yieldG.toFixed(1)} g${pullNote(shot)}` },
+            { label: 'Overview' },
             { label: 'Rate' },
           ]}
         />
@@ -373,11 +374,11 @@ function Session({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
           <Row gap="sm" className="shrink-0 border-t border-line pt-3">
             <Button
               variant="ghost"
-              // From the espresso flow, back is the pull step, reopened with the shot's numbers kept.
+              // From the espresso flow, back is the overview, reopened with the shot's numbers kept.
               onClick={() => (shot ? replace({ name: 'espresso', beanId: bean.id, shot }) : setStep(1))}
               disabled={saving}
             >
-              {shot ? 'Back to pull' : 'Back'}
+              {shot ? 'Back to overview' : 'Back'}
             </Button>
             <Spacer />
             <Button variant="quiet" onClick={() => submit()} disabled={saving}>

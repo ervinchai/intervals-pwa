@@ -118,7 +118,7 @@ export function ManualStep({
         </Button>
         <Spacer />
         <Button variant="primary" onClick={onNext}>
-          Next: rate
+          Next: overview
         </Button>
       </Row>
     </Stack>
