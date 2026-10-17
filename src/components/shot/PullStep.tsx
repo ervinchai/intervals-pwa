@@ -73,7 +73,8 @@ const TRACE_MAX_FLOW = 3
  * machine. Without one (`pump` is `none`, the real scale today) the shot is read from the flow, so the cues
  * work as before, and the timer is started by tapping the flow graph; it stops at a second tap, or when the
  * flow dies away. The graph only moves while coffee flows, so it holds the shot's shape once it is over.
- * Reset starts the shot over on screen without taring.
+ * Reset starts the shot over on screen without taring. "Tare & start" tares and starts the timer in one tap,
+ * at the first reading after the tare. The cup gauge stays empty until the screen is tared and the timer runs.
  *
  * When the flow has been at nothing for about six seconds the shot is over and `onFinished` is called with
  * the weight. The target comes from the recipe and stays fixed (it can be changed here, for this shot).
@@ -195,6 +196,12 @@ export function PullStep({
   const canTapTimer = scale.tared && scale.handTimer && scale.timer.stop === null && scale.connection === 'live'
   const gaugeTone: GaugeTone = message.tone === 'sage' ? 'sage' : message.tone === 'clay' ? 'clay' : 'ember'
   const showStopPoint = running && shot.flowing
+  // The cup stays empty until the shot has begun: tared from this screen, and the timer started.
+  const cupLive = scale.tared && scale.timer.start !== null
+  // Tare & start is for a shot not begun yet. With a pump sensor the timer starts with the pump, so a plain
+  // tare (tap the weight) is all there is.
+  const canTareAndStart =
+    scale.pump !== 'sensor' && scale.connection === 'live' && phase === 'idle' && (scale.timer.start === null || scale.timer.stop !== null)
 
   return (
     <Stack gap="lg" className="min-h-0 flex-1">
@@ -205,10 +212,10 @@ export function PullStep({
           </Heading>
           <div className="min-h-0 flex-1">
             <CupGauge
-              weight={weight}
-              projected={shot.showEstimate ? shot.projected : null}
+              weight={cupLive ? weight : 0}
+              projected={cupLive && shot.showEstimate ? shot.projected : null}
               target={target}
-              stopAt={showStopPoint ? guide.stopAt : null}
+              stopAt={cupLive && showStopPoint ? guide.stopAt : null}
               tone={gaugeTone}
             />
           </div>
@@ -254,6 +261,11 @@ export function PullStep({
         <Button variant="secondary" onClick={scale.reset}>
           Reset
         </Button>
+        {scale.pump !== 'sensor' ? (
+          <Button variant="primary" onClick={scale.tareAndStart} disabled={!canTareAndStart}>
+            Tare &amp; start
+          </Button>
+        ) : null}
         {/* Demo only: these stand in for the machine's pump, and the toggle makes the scale behave like a rough real one. */}
         {scale.pump === 'demo' ? (
           <>
@@ -301,7 +313,7 @@ export function PullStep({
 const READY_HINT: Record<PumpSignal, string | undefined> = {
   demo: 'Demo: the buttons below stand in for the machine.',
   sensor: undefined,
-  none: 'No pump sensor: tap the flow graph when the pump starts, to time the shot.',
+  none: 'No pump sensor: press Tare & start as you start the pump.',
 }
 
 /**

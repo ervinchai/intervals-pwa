@@ -81,6 +81,12 @@ export type Scale = ScaleState & {
    * not shown: the cup is not zeroed, so nothing the scale says is a shot yet.
    */
   tared: boolean
+  /**
+   * Tare and start the timer in one tap. With no pump signal the hand timer starts at once, at the press, and
+   * keeps running through the tare's new epoch; the weight counts from zero once the tare lands. If the tare
+   * fails the timer is cancelled. In the demo it tares, then starts the simulated pump.
+   */
+  tareAndStart: () => void
   /** With `handTimer`: start the timer now, or stop it if it runs. Does nothing once it has stopped. */
   tapTimer: () => void
   /** Start the shot over on screen (flow trace, timer, phase, `tared`); the scale itself is left alone. */
@@ -143,13 +149,47 @@ export function useScale(): Scale {
   }, [])
   const start = useCallback(() => command('start'), [command])
   const stopPump = useCallback(() => command('stop_pump'), [command])
-  const tare = useCallback(() => {
-    railsRequest('POST', '/coffee/scale/commands', ScaleCommandReplySchema, { command: 'tare' })
-      .then((reply) => {
-        if (reply.accepted) setTared(true)
-      })
-      .catch((err: unknown) => console.error('[intervals] scale command tare failed', err))
-  }, [])
+  // A tare, marking the screen tared once the scale acknowledges it. Resolves to whether it did.
+  const sendTare = useCallback(
+    () =>
+      railsRequest('POST', '/coffee/scale/commands', ScaleCommandReplySchema, { command: 'tare' })
+        .then((reply) => {
+          if (reply.accepted) setTared(true)
+          return reply.accepted
+        })
+        .catch((err: unknown) => {
+          console.error('[intervals] scale command tare failed', err)
+          return false
+        }),
+    [],
+  )
+  const tare = useCallback(() => void sendTare(), [sendTare])
+
+  const tareAndStart = useCallback(() => {
+    const current = tracking.current
+    const { signal } = current
+    if (signal === 'none' && current.now !== null) {
+      // The timer runs from the press. `keepHand` carries it over the tare's new epoch, which would
+      // otherwise start everything over; set before the request, as that epoch can beat the reply.
+      current.hand = { start: current.now, stop: null }
+      current.keepHand = true
+      setState(view(current))
+    }
+    void sendTare().then((accepted) => {
+      const latest = tracking.current
+      if (signal === 'none') {
+        // On success the tare's epoch change uses up `keepHand` (the reply and that epoch's first reading
+        // arrive in either order). On failure there is no new epoch: cancel the timer.
+        if (!accepted) {
+          latest.keepHand = false
+          latest.hand = NO_SPAN
+          setState(view(latest))
+        }
+      } else if (signal === 'demo' && accepted) {
+        command('start')
+      }
+    })
+  }, [sendTare, command])
 
   const tapTimer = useCallback(() => {
     const current = tracking.current
@@ -175,7 +215,7 @@ export function useScale(): Scale {
     )
   }, [])
 
-  return { ...state, connection, rough, setRough: setRoughOnServer, start, stopPump, tare, tared, tapTimer, reset }
+  return { ...state, connection, rough, setRough: setRoughOnServer, start, stopPump, tare, tared, tareAndStart, tapTimer, reset }
 }
 
 /** When something went on and off, in the readings' own milliseconds. */
@@ -186,7 +226,8 @@ const NO_SPAN: Span = { start: null, stop: null }
  * What is carried from one reading to the next. `pump` times the pump from the readings' own phase and clock
  * (`pumpMissed`: it was already on when the readings began). `flowPhase` is the phase read from the flow, for
  * a scale with no pump signal, and `hand` the timer started by a tap there. `flowEnd` is the last time
- * coffee flowed. `phase`, `signal` and `now` are the latest reading's.
+ * coffee flowed. `phase`, `signal` and `now` are the latest reading's. `keepHand`: Tare & start started the hand
+ * timer and is waiting for the tare, so the tare's new epoch keeps that timer instead of clearing it.
  */
 type Tracking = {
   tracker: Tracker
@@ -199,6 +240,7 @@ type Tracking = {
   phase: ShotPhase
   signal: PumpSignal
   now: number | null
+  keepHand: boolean
 }
 const START_TRACKING: Tracking = {
   tracker: EMPTY_TRACKER,
@@ -211,6 +253,7 @@ const START_TRACKING: Tracking = {
   phase: 'idle',
   signal: 'demo',
   now: null,
+  keepHand: false,
 }
 
 /** The next tracking state after a reading. Pure. */
@@ -218,7 +261,9 @@ function track(previous: Tracking, reading: ScaleReading): Tracking {
   let current = previous
   if (current.epoch !== reading.epoch) {
     // A new weighing. A shot already under way when the first reading arrives had its start missed.
-    current = { ...START_TRACKING, epoch: reading.epoch, pumpMissed: reading.phase !== 'idle' }
+    // Tare & start: the timer started at the press runs on through the tare (the clock is the same).
+    const hand = previous.keepHand && reading.pump === 'none' ? previous.hand : NO_SPAN
+    current = { ...START_TRACKING, epoch: reading.epoch, pumpMissed: reading.phase !== 'idle', hand }
   }
   const pump = timePump(current.pump, reading)
   const tracker = trackerStep(current.tracker, { t: reading.t, g: reading.g, f: reading.flow ?? undefined })
