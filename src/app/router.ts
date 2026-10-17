@@ -1,3 +1,5 @@
+import type { BrewResult } from '@/lib/contracts'
+import type { ShotRecord } from '@/lib/flow'
 import { createContext, useContext } from 'react'
 
 /**
@@ -29,6 +31,10 @@ export type ShotResult = {
   scaleG?: number
   timeS?: number
   manual?: boolean
+  /** How it tasted, picked on the overview with one tap. */
+  result?: BrewResult
+  /** The shot as the scale read it, saved with the brew. */
+  record?: ShotRecord
 }
 
 export type Screen =

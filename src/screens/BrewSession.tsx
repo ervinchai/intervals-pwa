@@ -96,7 +96,8 @@ function Session({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
   // opens on rating the shot. Its Back returns to the pull. The numbers form is only for a log made here.
   const [step, setStep] = useState<1 | 2>(shot ? 2 : 1)
 
-  const [result, setResult] = useState<BrewResult | ''>('')
+  // From the overview, the taste picked there with one tap.
+  const [result, setResult] = useState<BrewResult | ''>(shot?.result ?? '')
   const [cup, setCup] = useState<Partial<Record<(typeof CUP_AXES)[number]['key'], number>>>({})
   const [adjustment, setAdjustment] = useState('')
   const [notes, setNotes] = useState('')
@@ -139,6 +140,7 @@ function Session({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
       aftertaste: cup.aftertaste,
       adjustment: adjustment.trim() || undefined,
       notes: notes.trim() || undefined,
+      shot: shot?.record,
     }
     try {
       await logBrew(input)

@@ -10,7 +10,8 @@ import { SetupStep } from '@/components/shot/SetupStep'
 import { StepRail, type RailStep } from '@/components/shot/StepRail'
 import { AsyncScreen } from '@/components/ScreenState'
 import { Badge, Button, Heading, Row, Spacer, Stack, Text } from '@/components/ui'
-import type { CoffeeBean } from '@/lib/contracts'
+import type { BrewResult, CoffeeBean } from '@/lib/contracts'
+import type { ShotRecord } from '@/lib/flow'
 import { lastBrewTemp, numberIn, parseTarget, saveBrewTemp, startingGrind, suggestGrind } from '@/lib/coffee-utils'
 import { fetchCoffeeBean, logBrew } from '@/lib/data'
 import { useResource } from '@/lib/useResource'
@@ -82,9 +83,13 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
 
   // The scale says the shot is over: on to the overview, with the whole shot and its flow.
   const handleFinished = useCallback(
-    (read: { yieldG: number; targetG: number; timeS?: number; trace: Trace | null; traceOrigin: number | null }) => {
-      const { trace, traceOrigin, ...numbers } = read
-      setResult({ shot: { ...numbers, scaleG: numbers.yieldG, doseG: dose, grind, tempC: temp }, trace, traceOrigin })
+    (read: { yieldG: number; targetG: number; timeS?: number; trace: Trace | null; traceOrigin: number | null; record: ShotRecord | null }) => {
+      const { trace, traceOrigin, record, ...numbers } = read
+      setResult({
+        shot: { ...numbers, scaleG: numbers.yieldG, doseG: dose, grind, tempC: temp, record: record ?? undefined },
+        trace,
+        traceOrigin,
+      })
       setStep(2)
     },
     [dose, grind, temp],
@@ -93,7 +98,19 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
   // The numbers typed in by hand: on to the overview, keeping the flow if the scale read this shot first.
   const handleHandDone = () => {
     setResult((previous) => ({
-      shot: { grind, doseG: dose, yieldG: handYield, targetG: targetYield, scaleG, timeS: handTime, tempC: temp, manual: true },
+      // The scale's record stays with an edited shot: it is still how the shot ran.
+      shot: {
+        grind,
+        doseG: dose,
+        yieldG: handYield,
+        targetG: targetYield,
+        scaleG,
+        timeS: handTime,
+        tempC: temp,
+        manual: true,
+        result: previous?.shot.result,
+        record: previous?.shot.record,
+      },
       trace: previous?.trace ?? null,
       traceOrigin: previous?.traceOrigin ?? null,
     }))
@@ -109,6 +126,10 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
     setMode('manual')
     setStep(1)
   }
+
+  // The one-tap taste on the overview. Tapping the chosen one again clears it.
+  const setTaste = (taste: BrewResult) =>
+    setResult((previous) => (previous ? { ...previous, shot: { ...previous.shot, result: previous.shot.result === taste ? undefined : taste } } : previous))
 
   // Rating is a second screen, in place of this one; its Back returns here, to the overview.
   const rateShot = () => {
@@ -131,6 +152,8 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
         yieldG: finished.yieldG,
         timeS: finished.timeS === undefined ? undefined : Math.round(finished.timeS),
         waterTempC: finished.tempC,
+        result: finished.result,
+        shot: finished.record,
       })
       leave()
     } catch (err) {
@@ -203,7 +226,9 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
           error={saveError}
           onEdit={editShot}
           onRate={rateShot}
+          onTaste={setTaste}
           onSave={() => void saveShot()}
+          onDiscard={leave}
         />
       ) : mode === 'scale' ? (
         <PullStep
@@ -214,6 +239,7 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
           onBack={() => setStep(0)}
           onFinished={handleFinished}
           onRunningChange={setPumping}
+          onManual={() => setMode('manual')}
         />
       ) : (
         <ManualStep

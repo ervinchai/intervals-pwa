@@ -357,3 +357,64 @@ export function trackFinish(
   if (flowed === previous.flowed && quietSince === previous.quietSince && !finished) return previous
   return { flowed, quietSince, finished, finishedWeight: finished ? weight : null }
 }
+
+/** One reading of a recorded shot: ms since the shot's start, grams, flow in g/s. */
+export type ShotPoint = [ms: number, grams: number, flow: number]
+
+/**
+ * A shot as the scale read it, kept with its brew log for dial-in suggestions: a few figures worked out
+ * from the flow, and the readings themselves. Times are seconds, flows g/s; a figure is null when the
+ * shot cannot tell it (no timer: no time to the first drip).
+ */
+export type ShotRecord = {
+  summary: {
+    /** What timed the shot: the pump signal, a tap, or nothing. */
+    timedBy: 'pump' | 'hand' | null
+    /** From the timer's start to the first drops: the preinfusion and fill. */
+    firstDripS: number | null
+    /** From the first drops to the end of the flow. */
+    flowS: number | null
+    /** The weight gained over the flow time, per second. */
+    avgFlowGs: number | null
+    /** The median flow over the middle half of the flow time: the shot's plateau. */
+    plateauFlowGs: number | null
+    peakFlowGs: number | null
+  }
+  points: ShotPoint[]
+}
+
+const round = (value: number, places: number) => Math.round(value * 10 ** places) / 10 ** places
+
+/**
+ * The record of a shot from its readings (`t` on the readings' clock, `g`, and `f` the flow as shown), from
+ * `start` to `flowEnd` (the last moment coffee flowed). `timerStart` is when the timer started, if it did.
+ * Pure, for the brew log.
+ */
+export function recordShot(
+  samples: ReadonlyArray<{ t: number; g: number; f: number }>,
+  { start, flowEnd, timerStart, timedBy }: { start: number; flowEnd: number; timerStart: number | null; timedBy: 'pump' | 'hand' | null },
+): ShotRecord {
+  const shot = samples.filter((sample) => sample.t >= start && sample.t <= flowEnd)
+  const points: ShotPoint[] = shot.map((sample) => [Math.round(sample.t - start), round(sample.g, 1), round(sample.f, 2)])
+  const first = shot.find((sample) => sample.f >= FLOW_ENTER)
+  const last = shot.at(-1)
+  const flowS = first && last && last.t > first.t ? (last.t - first.t) / 1000 : null
+  const flowing = first ? shot.filter((sample) => sample.t >= first.t) : []
+  const middle = flowS !== null && first ? flowing.filter((sample) => {
+    const at = (sample.t - first.t) / 1000
+    return at >= flowS * 0.25 && at <= flowS * 0.75
+  }) : []
+  const sorted = middle.map((sample) => sample.f).sort((a, b) => a - b)
+  const plateau = sorted.length ? sorted[sorted.length >> 1] : null
+  return {
+    summary: {
+      timedBy,
+      firstDripS: timerStart !== null && first ? round(Math.max(first.t - timerStart, 0) / 1000, 1) : null,
+      flowS: flowS === null ? null : round(flowS, 1),
+      avgFlowGs: flowS && first && last ? round((last.g - first.g) / flowS, 2) : null,
+      plateauFlowGs: plateau === null ? null : round(plateau, 2),
+      peakFlowGs: flowing.length ? round(Math.max(...flowing.map((sample) => sample.f)), 2) : null,
+    },
+    points,
+  }
+}
