@@ -65,8 +65,8 @@ const TRACE_MAX_FLOW = 3
  * three tiers: the card on top says what to do (keep going, get ready, stop now, too late), driven by
  * the stop point, the weight at which switching the pump off lets the drip land on the target. Beside it
  * the cup gauge shows the level against that mark. Under it are the weight and the predicted finish, then the
- * shot card: the timer and the flow over the flow graph, one unit on one time axis. At the foot are the
- * settings the estimate depends on. The flow shows only after a tare from this screen: before it the cup is
+ * shot card: the timer and the flow over the flow graph, one unit on one time axis. The settings the
+ * estimate depends on sit under the cup; the row at the foot holds only actions, with Tare & start on the right. The flow shows only after a tare from this screen: before it the cup is
  * not zeroed, so nothing the scale says is a shot yet.
  *
  * The shot time runs from the pump going on to going off: the demo's buttons, or a pump sensor on the real
@@ -204,24 +204,52 @@ export function PullStep({
     scale.pump !== 'sensor' && scale.connection === 'live' && phase === 'idle' && (scale.timer.start === null || scale.timer.stop !== null)
 
   return (
-    <Stack gap="lg" className="min-h-0 flex-1">
-      <div className="grid min-h-0 flex-1 grid-cols-[17rem_minmax(0,1fr)] gap-3.5">
-        <Card pad="md" className="flex min-h-0 flex-col gap-3">
-          <Heading role="label" as="span" tone="faint">
-            Cup
-          </Heading>
-          <div className="min-h-0 flex-1">
-            <CupGauge
-              weight={cupLive ? weight : 0}
-              projected={cupLive && shot.showEstimate ? shot.projected : null}
-              target={target}
-              stopAt={cupLive && showStopPoint ? guide.stopAt : null}
-              tone={gaugeTone}
+    <Stack gap="md" className="min-h-0 flex-1">
+      <div className="grid min-h-0 flex-1 grid-cols-[17rem_minmax(0,1fr)] gap-3">
+        <div className="flex min-h-0 flex-col gap-3">
+          <Card pad="md" className="flex min-h-0 flex-1 flex-col gap-3">
+            <Heading role="label" as="span" tone="faint">
+              Cup
+            </Heading>
+            <div className="min-h-0 flex-1">
+              <CupGauge
+                weight={cupLive ? weight : 0}
+                projected={cupLive && shot.showEstimate ? shot.projected : null}
+                target={target}
+                stopAt={cupLive && showStopPoint ? guide.stopAt : null}
+                tone={gaugeTone}
+              />
+            </div>
+          </Card>
+          {/* The three settings the shot depends on, out of the way of the actions. */}
+          <Card pad="sm" className="flex shrink-0 flex-col gap-1">
+            <Scrubber
+              className="w-full"
+              label="Target"
+              value={target}
+              onChange={setTargetOverride}
+              step={0.5}
+              min={MIN_TARGET_G}
+              max={MAX_TARGET_G}
+              format={(value) => value.toFixed(1)}
+              unit="g"
             />
-          </div>
-        </Card>
+            <Scrubber className="w-full" label="Temp" value={tempC} onChange={onTemp} step={1} min={70} max={100} unit="°C" />
+            <Scrubber
+              className="w-full"
+              label="Run-on"
+              value={runOn}
+              onChange={setRunOn}
+              step={0.1}
+              min={MIN_RUN_ON_S}
+              max={MAX_RUN_ON_S}
+              format={(value) => value.toFixed(1)}
+              unit="s"
+            />
+          </Card>
+        </div>
 
-        <div className="flex min-h-0 flex-col gap-3.5">
+        <div className="flex min-h-0 flex-col gap-3">
           <StopCard cue={message} />
 
           <Card pad="none" className="grid shrink-0 grid-cols-[1fr_1fr] divide-x divide-line">
@@ -254,25 +282,20 @@ export function PullStep({
         </div>
       </div>
 
-      <Row gap="md" align="end" className="shrink-0 flex-wrap">
+      <Row gap="md" align="center" className="shrink-0">
         <Button variant="ghost" onClick={onBack} disabled={running}>
           Back
         </Button>
         <Button variant="secondary" onClick={scale.reset}>
           Reset
         </Button>
-        {scale.pump !== 'sensor' ? (
-          <Button variant="primary" onClick={scale.tareAndStart} disabled={!canTareAndStart}>
-            Tare &amp; start
-          </Button>
-        ) : null}
         {/* Demo only: these stand in for the machine's pump, and the toggle makes the scale behave like a rough real one. */}
         {scale.pump === 'demo' ? (
           <>
-            <Button variant="primary" onClick={scale.start} disabled={phase !== 'idle' || scale.connection !== 'live'}>
-              Start shot
+            <Button variant="quiet" onClick={scale.start} disabled={phase !== 'idle' || scale.connection !== 'live'}>
+              Start pump
             </Button>
-            <Button variant="secondary" onClick={scale.stopPump} disabled={!running}>
+            <Button variant="quiet" onClick={scale.stopPump} disabled={!running}>
               Stop pump
             </Button>
             <Button size="sm" variant={scale.rough ? 'select' : 'quiet'} onClick={() => scale.setRough(!scale.rough)}>
@@ -281,29 +304,11 @@ export function PullStep({
           </>
         ) : null}
         <Spacer />
-        <Scrubber
-          className="w-52"
-          label="Target"
-          value={target}
-          onChange={setTargetOverride}
-          step={0.5}
-          min={MIN_TARGET_G}
-          max={MAX_TARGET_G}
-          format={(value) => value.toFixed(1)}
-          unit="g"
-        />
-        <Scrubber className="w-52" label="Temp" value={tempC} onChange={onTemp} step={1} min={70} max={100} unit="°C" />
-        <Scrubber
-          className="w-52"
-          label="Run-on"
-          value={runOn}
-          onChange={setRunOn}
-          step={0.1}
-          min={MIN_RUN_ON_S}
-          max={MAX_RUN_ON_S}
-          format={(value) => value.toFixed(1)}
-          unit="s"
-        />
+        {scale.pump !== 'sensor' ? (
+          <Button variant="primary" onClick={scale.tareAndStart} disabled={!canTareAndStart}>
+            Tare &amp; start
+          </Button>
+        ) : null}
       </Row>
     </Stack>
   )
@@ -369,7 +374,7 @@ function ShotCard({
             Time
           </Heading>
           <Row gap="sm" align="baseline">
-            <span className="text-[3rem] font-semibold leading-none tabular-nums text-ink">{time.value}</span>
+            <span className="text-[2.5rem] font-semibold leading-none tabular-nums text-ink">{time.value}</span>
             {time.unit ? <span className="text-xl text-ink-dim">{time.unit}</span> : null}
           </Row>
         </Stack>
@@ -379,7 +384,7 @@ function ShotCard({
             Flow
           </Heading>
           <Row gap="sm" align="baseline">
-            <span className="text-[2.25rem] font-semibold leading-none tabular-nums text-ink">{flow ?? '—'}</span>
+            <span className="text-[2rem] font-semibold leading-none tabular-nums text-ink">{flow ?? '—'}</span>
             {flow !== null ? <span className="text-lg text-ink-dim">g/s</span> : null}
           </Row>
         </Stack>
@@ -408,18 +413,18 @@ function ShotCard({
   )
   if (!onTap) {
     return (
-      <Card pad="md" className="flex min-h-[12rem] flex-1 flex-col gap-2">
+      <Card pad="md" className="flex min-h-[9rem] flex-1 flex-col gap-1.5">
         {body}
       </Card>
     )
   }
   return (
-    <Card pad="none" className="flex min-h-[12rem] flex-1 flex-col">
+    <Card pad="none" className="flex min-h-[9rem] flex-1 flex-col">
       <button
         type="button"
         onClick={onTap}
         aria-label={`${hint}. Time ${time.value} ${time.unit}`}
-        className="flex min-h-0 flex-1 flex-col gap-2 rounded-card p-3.5 text-left transition-colors duration-150 ease-out active:bg-raised"
+        className="flex min-h-0 flex-1 flex-col gap-1.5 rounded-card p-3.5 text-left transition-colors duration-150 ease-out active:bg-raised"
       >
         {body}
       </button>
@@ -540,12 +545,12 @@ function Readout({
   onTap?: () => void
 }) {
   const body = (
-    <Stack gap="xs" className="min-w-0 px-6 py-5">
+    <Stack gap="xs" className="min-w-0 px-6 py-3.5">
       <Heading role="label" as="span" tone="faint">
         {label}
       </Heading>
       <Row gap="sm" align="baseline">
-        <span className={cn('font-semibold leading-none tabular-nums', large ? 'text-[4.5rem]' : 'text-[3rem]', valueClass ?? 'text-ink')}>
+        <span className={cn('font-semibold leading-none tabular-nums', large ? 'text-[3.75rem]' : 'text-[2.75rem]', valueClass ?? 'text-ink')}>
           {value}
         </span>
         {unit ? <span className="text-xl text-ink-dim">{unit}</span> : null}

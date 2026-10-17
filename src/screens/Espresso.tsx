@@ -114,7 +114,6 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
           {step === 1 && scaleG !== undefined ? <Badge tone="neutral">Scale read {scaleG.toFixed(1)} g</Badge> : null}
           {step === 1 && scaleG === undefined ? (
             <Row gap="sm" align="center">
-              {mode === 'scale' ? <Badge tone="clay">Simulated scale</Badge> : null}
               {/* Swapping unmounts the other way through, so it waits while the pump runs. */}
               <Button size="sm" variant={mode === 'scale' ? 'select' : 'quiet'} aria-pressed={mode === 'scale'} onClick={() => setMode('scale')} disabled={pumping}>
                 Scale

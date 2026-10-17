@@ -30,7 +30,7 @@ export function StopCard({ cue }: { cue: Cue }) {
   return (
     <div
       className={cn(
-        'flex min-h-[12rem] flex-col justify-center rounded-card border px-8 py-6 transition-colors duration-150 ease-out',
+        'flex min-h-[8.5rem] flex-col justify-center rounded-card border px-7 py-4 transition-colors duration-150 ease-out',
         cue.solid ? 'border-sage bg-sage' : tint.box,
       )}
       style={cue.solid ? { color: 'var(--color-base)' } : undefined}
@@ -38,12 +38,12 @@ export function StopCard({ cue }: { cue: Cue }) {
       <div
         role="status"
         aria-live="assertive"
-        className={cn('font-display text-[4.5rem] leading-none tracking-[-0.02em]', !cue.solid && tint.headline)}
+        className={cn('font-display text-[3.5rem] leading-none tracking-[-0.02em]', !cue.solid && tint.headline)}
       >
         {cue.headline}
       </div>
-      <div className={cn('mt-4 text-[1.25rem] leading-snug tabular-nums', !cue.solid && 'text-ink')}>{cue.detail}</div>
-      <div className={cn('mt-1 min-h-6 text-[0.9375rem]', !cue.solid && 'text-ink-dim')}>{cue.hint ?? ''}</div>
+      <div className={cn('mt-2.5 text-[1.125rem] leading-snug tabular-nums', !cue.solid && 'text-ink')}>{cue.detail}</div>
+      <div className={cn('mt-0.5 min-h-5 text-[0.875rem]', !cue.solid && 'text-ink-dim')}>{cue.hint ?? ''}</div>
     </div>
   )
 }
