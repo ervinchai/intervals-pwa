@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { getConfig } from '@/lib/config'
 import {
   ScaleCommandReplySchema,
   ScaleReadingSchema,
   ScaleSettingsReplySchema,
+  ScaleStatusSchema,
   type PumpSignal,
   type ScaleCommand,
   type ScaleReading,
@@ -65,14 +66,20 @@ export type ScaleState = {
 }
 
 /**
- * How the screen stands with the server. `unconfigured`: no `railsBaseUrl`, so there is nowhere to
- * read from. `connecting`: waiting for the stream to open. `live`: readings are arriving. `lost`:
- * the stream dropped or went quiet, and a new one is tried every second.
+ * How the screen stands with the scale, as the stream says it. `unconfigured`: no `railsBaseUrl`, so there is
+ * nowhere to read from. `connecting`: the stream is opening. `waiting`: the stream is open but the scale is not
+ * connected (off, asleep, away); Home Assistant connects it by itself when it wakes, and the stream stays open,
+ * so this turns into `live` with no action. `live`: readings are arriving. `unreachable` (the server or Home
+ * Assistant could not be reached) and `lost` (the stream stopped) are where the stream ended; they stay until
+ * `retry`, because nothing on the scale's side would bring the stream back. Nothing is retried by itself, so
+ * the screen never flickers between states.
  */
-export type ScaleConnection = 'unconfigured' | 'connecting' | 'live' | 'lost'
+export type ScaleConnection = 'unconfigured' | 'connecting' | 'waiting' | 'live' | 'unreachable' | 'lost'
 
 export type Scale = ScaleState & {
   connection: ScaleConnection
+  /** Open the stream again, once: for after the server dropped it (`unreachable`, `lost`). */
+  retry: () => void
   /** Whether the simulated scale is behaving like a rough one (see Rails `Coffee::Scale::Curve`). */
   rough: boolean
   setRough: (rough: boolean) => void
@@ -117,15 +124,24 @@ const EMPTY_STATE: ScaleState = {
   clockOffset: null,
 }
 
-/** The wait before opening the stream again after it dropped, in milliseconds. */
-const RETRY_MS = 1000
-/** A stream that sends nothing for this long is taken as dead. Readings come about eight a second. */
-const SILENCE_MS = 3000
+/**
+ * A stream that sends nothing at all for this long is taken as dead. The server sends a reading ten times
+ * a second, and a `: ping` every second while the scale is quiet, so only a dead server or network goes
+ * this long without a word. The first bytes get longer: the server opens Home Assistant's socket first.
+ */
+const SILENCE_MS = 5000
+const FIRST_BYTES_MS = 10_000
 
 export function useScale(): Scale {
   const configured = Boolean(getConfig().railsBaseUrl)
   const [state, setState] = useState<ScaleState>(EMPTY_STATE)
   const [connection, setConnection] = useState<ScaleConnection>(configured ? 'connecting' : 'unconfigured')
+  // Bumped by `retry` to open the stream once more.
+  const [attempt, setAttempt] = useState(0)
+  // The stream is open only while this screen is mounted and the page is visible: leaving the espresso
+  // screen (unmount) or hiding the app (screen off, another app) closes it, so the server lets go of Home
+  // Assistant. Showing the page again opens it once.
+  const visible = usePageVisible()
   const [rough, setServerRough] = useState(false)
   const [tared, setTared] = useState(false)
   // Everything carried from one reading to the next, kept apart from the state the screen sees (see
@@ -140,7 +156,7 @@ export function useScale(): Scale {
   }, [])
 
   useEffect(() => {
-    if (!configured) return
+    if (!configured || !visible) return
     const controller = new AbortController()
     void followScale(controller.signal, {
       onConnection: setConnection,
@@ -155,7 +171,12 @@ export function useScale(): Scale {
       },
     })
     return () => controller.abort()
-  }, [configured])
+  }, [configured, visible, attempt])
+
+  const retry = useCallback(() => {
+    setConnection('connecting')
+    setAttempt((previous) => previous + 1)
+  }, [])
 
   const command = useCallback((name: ScaleCommand) => {
     railsRequest('POST', '/coffee/scale/commands', ScaleCommandReplySchema, { command: name }).catch((err: unknown) =>
@@ -232,7 +253,7 @@ export function useScale(): Scale {
     )
   }, [])
 
-  return { ...state, connection, rough, setRough: setRoughOnServer, start, stopPump, tare, tared, tareAndStart, tapTimer, reset }
+  return { ...state, connection, retry, rough, setRough: setRoughOnServer, start, stopPump, tare, tared, tareAndStart, tapTimer, reset }
 }
 
 /** When something went on and off, in the readings' own milliseconds. */
@@ -348,59 +369,78 @@ function timePump(pump: Span, reading: ScaleReading): Span {
 }
 
 /**
- * Reads the server's stream of readings until `signal` aborts, opening it again whenever it drops or
- * goes quiet. `EventSource` would reconnect by itself but cannot tell when a stream has gone silent.
+ * Reads the server's stream of readings once, until it ends or `signal` aborts. The stream stays open while
+ * the scale is off (`waiting`, from its `status` events), so the scale coming and going needs nothing here.
+ * When the stream itself ends it says why (`unreachable`, or `lost` when it stopped or went silent) and does
+ * not open a new one; `retry` does, when the person asks. `EventSource` would reconnect on its own, which is
+ * the flicker this avoids.
  */
 async function followScale(
   signal: AbortSignal,
   handlers: { onConnection: (connection: ScaleConnection) => void; onOpen: () => void; onReading: (reading: ScaleReading) => void },
 ) {
   const { railsBaseUrl } = getConfig()
-  while (!signal.aborted) {
-    handlers.onConnection('connecting')
-    const attempt = new AbortController()
-    const giveUp = () => attempt.abort()
-    signal.addEventListener('abort', giveUp, { once: true })
-    let watchdog = setTimeout(giveUp, SILENCE_MS)
-    try {
-      const res = await fetch(`${railsBaseUrl}/coffee/scale/stream`, { signal: attempt.signal })
-      if (!res.ok || !res.body) throw new Error(`the scale stream answered ${res.status}`)
-      handlers.onOpen()
-      for await (const { event, data } of readSse(res.body)) {
-        clearTimeout(watchdog)
-        watchdog = setTimeout(giveUp, SILENCE_MS)
-        // An `error` event is the server giving up on this stream: open a new one.
-        if (event === 'error') break
-        if (event !== 'reading') continue
-        const parsed = ScaleReadingSchema.safeParse(JSON.parse(data))
-        if (!parsed.success) {
-          console.error('[intervals] a scale reading failed its contract', parsed.error.issues)
-          continue
-        }
-        handlers.onConnection('live')
-        handlers.onReading(parsed.data)
-      }
-    } catch (err) {
-      if (!signal.aborted) console.error('[intervals] the scale stream failed', err)
-    } finally {
-      clearTimeout(watchdog)
-      signal.removeEventListener('abort', giveUp)
-    }
-    if (signal.aborted) return
-    handlers.onConnection('lost')
-    await pause(RETRY_MS, signal)
+  handlers.onConnection('connecting')
+  const attempt = new AbortController()
+  const giveUp = () => attempt.abort()
+  signal.addEventListener('abort', giveUp, { once: true })
+  let watchdog = setTimeout(giveUp, FIRST_BYTES_MS)
+  const heard = () => {
+    clearTimeout(watchdog)
+    watchdog = setTimeout(giveUp, SILENCE_MS)
   }
+  let ending: ScaleConnection = 'lost'
+  let answered = false
+  try {
+    const res = await fetch(`${railsBaseUrl}/coffee/scale/stream`, { signal: attempt.signal })
+    answered = true
+    if (!res.ok || !res.body) {
+      ending = 'unreachable'
+      throw new Error(`the scale stream answered ${res.status}`)
+    }
+    handlers.onOpen()
+    heard()
+    for await (const { event, data } of readSse(res.body, { onActivity: heard })) {
+      if (event === 'error') {
+        // The server's only error here is that it or Home Assistant could not be reached.
+        ending = 'unreachable'
+        break
+      }
+      if (event === 'status') {
+        const parsed = ScaleStatusSchema.safeParse(JSON.parse(data))
+        // Not connected: waiting for the scale. Connected: the first reading is a moment away, and it says "live".
+        if (parsed.success && !parsed.data.connected) handlers.onConnection('waiting')
+        continue
+      }
+      if (event !== 'reading') continue
+      const parsed = ScaleReadingSchema.safeParse(JSON.parse(data))
+      if (!parsed.success) {
+        console.error('[intervals] a scale reading failed its contract', parsed.error.issues)
+        continue
+      }
+      handlers.onConnection('live')
+      handlers.onReading(parsed.data)
+    }
+  } catch (err) {
+    if (!signal.aborted) {
+      console.error('[intervals] the scale stream failed', err)
+      // No answer at all (the server is down or unreachable) is "unreachable"; a stream cut off later is "lost".
+      if (!answered) ending = 'unreachable'
+    }
+  } finally {
+    clearTimeout(watchdog)
+    signal.removeEventListener('abort', giveUp)
+  }
+  if (!signal.aborted) handlers.onConnection(ending)
 }
 
-/** Waits `ms`, or less if `signal` aborts first. */
-function pause(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    const done = () => {
-      clearTimeout(timer)
-      signal.removeEventListener('abort', done)
-      resolve()
-    }
-    const timer = setTimeout(done, ms)
-    signal.addEventListener('abort', done, { once: true })
-  })
+/** Whether the page is visible (not a hidden tab, a locked screen, or an app in the background). */
+function usePageVisible(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      document.addEventListener('visibilitychange', onChange)
+      return () => document.removeEventListener('visibilitychange', onChange)
+    },
+    () => document.visibilityState === 'visible',
+  )
 }

@@ -15,7 +15,9 @@ import {
   readShot,
   targetState,
   trackFinish,
+  recordShot,
   type Sample,
+  type ShotRecord,
   type ShotReadout,
   type StopCue,
   type StopGuide,
@@ -93,6 +95,7 @@ export function PullStep({
   onBack,
   onFinished,
   onRunningChange,
+  onManual,
 }: {
   /** The yield to aim for, in grams: the recipe's. */
   targetG: number
@@ -103,9 +106,19 @@ export function PullStep({
   tempC: number
   onTemp: (celsius: number) => void
   /** The shot is over: its numbers, and the flow over the whole shot for the overview (`traceOrigin`: the timer's start). */
-  onFinished: (result: { yieldG: number; targetG: number; timeS?: number; trace: Trace | null; traceOrigin: number | null }) => void
+  onFinished: (result: {
+    yieldG: number
+    targetG: number
+    timeS?: number
+    trace: Trace | null
+    traceOrigin: number | null
+    /** The shot's readings and figures, for the brew log; null when no flow was seen. */
+    record: ShotRecord | null
+  }) => void
   /** Told when the pump goes on or off, so the screen around can hold back its own ways out mid-shot. */
   onRunningChange: (running: boolean) => void
+  /** Switch to typing the shot in by hand: offered while the scale is not there. */
+  onManual: () => void
 }) {
   const scale = useScale()
   const [runOn, setRunOnState] = useState(loadRunOn)
@@ -117,7 +130,10 @@ export function PullStep({
     saveRunOn(seconds)
   }
 
-  const { phase, samples, weight, shown, flow, flowing, stable } = scale
+  const { samples, weight, shown, flow, flowing, stable } = scale
+  // Until the first tare from this screen nothing on the scale is a shot: a finger, a cup being set down. With
+  // no pump sensor the phase comes from the flow, so it is held at idle until then; the readouts wait too.
+  const phase = scale.pump === 'none' && !scale.tared ? 'idle' : scale.phase
   const target = targetOverride ?? targetG
   const running = phase === 'running'
   useEffect(() => {
@@ -144,7 +160,11 @@ export function PullStep({
     runOn,
     target,
   })
-  const message = linkCue(scale.connection) ?? cueFor(cue, guide, shot, latched.finalWeight, target, scale.shotSeconds, scale.pump)
+  const message = cueFor(cue, guide, shot, latched.finalWeight, target, scale.shotSeconds, scale.pump)
+  // While the scale is not live an overlay says why, over the pull. "Connecting" waits a moment before it
+  // shows, so a scale that is already on never flashes it.
+  const connectingLong = useDelayed(scale.connection === 'connecting', CONNECTING_GRACE_MS)
+  const overlay = scale.connection === 'connecting' && !connectingLong ? null : linkOverlay(scale.connection)
   // Nothing flows before a shot, whatever a rough scale's noise says, nor before the cup was tared.
   const flowShown = scale.tared && phase !== 'idle' && shot.flowing
 
@@ -159,15 +179,17 @@ export function PullStep({
   // The flow over the whole shot, for the overview: from the timer's start (or 2 s before the first flow) to
   // the end of the flow. Kept in a ref, refreshed after every render, so handing the shot on reads it
   // without re-running each time a reading arrives.
-  const shotTrace = useRef<Trace | null>(null)
+  const shotTrace = useRef<WholeShot>(NO_SHOT)
   const traceOrigin = scale.timer.start
+  const timedBy = scale.timer.by
   // Declared before the effect below, so after each render it runs first and that one reads it fresh.
   useEffect(() => {
-    shotTrace.current = wholeShot(samples, traceOrigin, scale.flowEnd)
+    shotTrace.current = wholeShot(samples, traceOrigin, scale.flowEnd, timedBy)
   })
   useEffect(() => {
     if (!finished || finishedWeight === null) return
-    onFinished({ yieldG: Math.round(finishedWeight * 10) / 10, targetG: target, timeS, trace: shotTrace.current, traceOrigin })
+    const { trace, record } = shotTrace.current
+    onFinished({ yieldG: Math.round(finishedWeight * 10) / 10, targetG: target, timeS, trace, traceOrigin, record })
   }, [finished, finishedWeight, onFinished, target, timeS, traceOrigin])
 
   // Tapping the weight tares. Not while the pump runs: a stray tap must not wipe a shot.
@@ -220,7 +242,8 @@ export function PullStep({
 
   return (
     <Stack gap="md" className="min-h-0 flex-1">
-      <div className="grid min-h-0 flex-1 grid-cols-[17rem_minmax(0,1fr)] gap-3">
+      <div className="relative grid min-h-0 flex-1 grid-cols-[17rem_minmax(0,1fr)] gap-3">
+        {overlay ? <ScaleOverlay overlay={overlay} onRetry={scale.retry} onManual={onManual} /> : null}
         <div className="flex min-h-0 flex-col gap-3">
           <Card pad="md" className="flex min-h-0 flex-1 flex-col gap-3">
             <Heading role="label" as="span" tone="faint">
@@ -270,8 +293,8 @@ export function PullStep({
           <Card pad="none" className="grid shrink-0 grid-cols-[1fr_1fr] divide-x divide-line">
             <Readout
               label="Weight"
-              value={shown.toFixed(1)}
-              unit="g"
+              value={scale.tared ? shown.toFixed(1) : '—'}
+              unit={scale.tared ? 'g' : ''}
               large
               note={canTare ? 'Tap to tare' : undefined}
               onTap={canTare ? scale.tare : undefined}
@@ -329,17 +352,27 @@ export function PullStep({
   )
 }
 
-/** The flow over a whole shot, from the timer's start (else 2 s before the first flow) to the last flow. */
-function wholeShot(samples: readonly Sample[], timerStart: number | null, flowEnd: number | null): Trace | null {
-  if (flowEnd === null) return null
-  const firstFlow = samples.find((sample) => (sample.f ?? flowRate(samples, sample.t) ?? 0) >= FLOW_ENTER)?.t
+/** A whole shot: its flow for the overview's graph, and its record for the brew log. */
+type WholeShot = { trace: Trace | null; record: ShotRecord | null }
+const NO_SHOT: WholeShot = { trace: null, record: null }
+
+/**
+ * The whole shot, from the timer's start (else 2 s before the first flow) to the last flow: the flow for the
+ * graph, and the readings with their figures for the brew log.
+ */
+function wholeShot(samples: readonly Sample[], timerStart: number | null, flowEnd: number | null, timedBy: 'pump' | 'hand' | null): WholeShot {
+  if (flowEnd === null) return NO_SHOT
+  const withFlow = samples
+    .map((sample) => ({ t: sample.t, g: sample.g, f: sample.f ?? flowRate(samples, sample.t) }))
+    .filter((point): point is { t: number; g: number; f: number } => point.f !== null)
+  const firstFlow = withFlow.find((point) => point.f >= FLOW_ENTER)?.t
   const start = timerStart ?? (firstFlow === undefined ? null : firstFlow - 2000)
-  if (start === null || flowEnd <= start) return null
-  const points = samples
-    .filter((sample) => sample.t >= start && sample.t <= flowEnd)
-    .map((sample) => ({ t: sample.t, f: sample.f ?? flowRate(samples, sample.t) }))
-    .filter((point): point is { t: number; f: number } => point.f !== null)
-  return { start, windowMs: Math.max(flowEnd - start, TRACE_MS), points }
+  if (start === null || flowEnd <= start) return NO_SHOT
+  const points = withFlow.filter((point) => point.t >= start && point.t <= flowEnd).map(({ t, f }) => ({ t, f }))
+  return {
+    trace: { start, windowMs: Math.max(flowEnd - start, TRACE_MS), points },
+    record: recordShot(withFlow, { start, flowEnd, timerStart, timedBy }),
+  }
 }
 
 /** The line under "Ready", by where the pump signal comes from. */
@@ -497,23 +530,74 @@ function verdictNote(grams: number, target: number): string {
   return state === 'over' ? `${difference} g over target` : `${difference} g short of target`
 }
 
-/** What the card says while the readings are not coming from the server; null when they are. */
-function linkCue(connection: ScaleConnection): Cue | null {
+/** How long "Connecting" waits before it shows, in milliseconds: a scale that is on is live before then. */
+const CONNECTING_GRACE_MS = 700
+
+/** What the overlay says while the scale is not live, and whether reconnecting is up to the person. */
+type LinkOverlay = { headline: string; detail: string; canRetry: boolean }
+
+/** The overlay for a connection state, or null when the readings are coming. */
+function linkOverlay(connection: ScaleConnection): LinkOverlay | null {
   switch (connection) {
     case 'live':
       return null
     case 'connecting':
-      return { tone: 'ink', headline: 'Connecting', detail: 'Reaching the scale through the server…' }
-    case 'lost':
-      return { tone: 'clay', headline: 'Scale lost', detail: 'The server stopped sending readings. Trying again.', hint: 'You can still enter the shot by hand.' }
-    case 'unconfigured':
+      return { headline: 'Connecting', detail: 'Opening the scale through the server…', canRetry: false }
+    case 'waiting':
       return {
-        tone: 'clay',
-        headline: 'No server set',
-        detail: 'The scale is read through the server. Set railsBaseUrl in config.json.',
-        hint: 'You can still enter the shot by hand.',
+        headline: 'Turn on the scale',
+        detail: 'It connects by itself through Home Assistant, and this goes away when the readings start.',
+        canRetry: false,
       }
+    case 'unreachable':
+      return { headline: 'Can’t reach the scale', detail: 'The server or Home Assistant is not answering.', canRetry: true }
+    case 'lost':
+      return { headline: 'The scale stream stopped', detail: 'The server stopped sending readings.', canRetry: true }
+    case 'unconfigured':
+      return { headline: 'No server set', detail: 'The scale is read through the server. Set railsBaseUrl in config.json.', canRetry: false }
   }
+}
+
+/**
+ * Covers the pull while the scale is not live, with the way through by hand. "Reconnect" is offered only when
+ * the server dropped the stream: a scale that is off needs nothing from here, Home Assistant connects it.
+ */
+function ScaleOverlay({ overlay, onRetry, onManual }: { overlay: LinkOverlay; onRetry: () => void; onManual: () => void }) {
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-card bg-base/80 backdrop-blur-[2px]">
+      <Card pad="lg" className="flex w-[28rem] max-w-full flex-col gap-3">
+        <div role="status" aria-live="polite" className="font-display text-[2.5rem] leading-none tracking-[-0.02em] text-ink">
+          {overlay.headline}
+        </div>
+        <Text tone="dim">{overlay.detail}</Text>
+        <Row gap="sm" className="pt-2">
+          <Spacer />
+          {overlay.canRetry ? (
+            <Button variant="secondary" onClick={onRetry}>
+              Reconnect
+            </Button>
+          ) : null}
+          <Button variant="primary" onClick={onManual}>
+            Enter by hand
+          </Button>
+        </Row>
+      </Card>
+    </div>
+  )
+}
+
+/** `on`, but only once it has stayed true for `ms`: for a state that should not flash when it is brief. */
+function useDelayed(on: boolean, ms: number): boolean {
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    if (!on) return
+    const id = setTimeout(() => setLate(true), ms)
+    return () => {
+      clearTimeout(id)
+      setLate(false)
+    }
+  }, [on, ms])
+  return on && late
 }
 
 /** What the card at the top says for a cue, and how it is coloured. */

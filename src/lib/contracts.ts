@@ -207,6 +207,13 @@ export const BrewLogInputSchema = z.object({
   aftertaste: z.number().min(1).max(5).optional(),
   adjustment: z.string().optional(),
   notes: z.string().optional(),
+  /** The shot as the scale read it (see `ShotRecord` in flow.ts): the server keeps it beside the brew, not in Notion. */
+  shot: z
+    .object({
+      summary: z.record(z.string(), z.union([z.number(), z.string(), z.null()])),
+      points: z.array(z.tuple([z.number(), z.number(), z.number()])),
+    })
+    .optional(),
 })
 
 /**
@@ -284,6 +291,12 @@ export const ScaleReadingSchema = z.object({
   pump: z.enum(['demo', 'sensor', 'none']).default('demo'),
   /** The scale's own flow rate in g/s (the real Dot sends it); absent from the simulation, which is then estimated. */
   flow: z.number().nullable().optional(),
+})
+
+/** Whether the scale is connected, on the scale stream: first when it opens, then on each change. */
+export const ScaleStatusSchema = z.object({
+  connected: z.boolean(),
+  battery: z.number().nullable().optional(),
 })
 
 /** What the simulated machine can be told to do (`POST /coffee/scale/commands`). */

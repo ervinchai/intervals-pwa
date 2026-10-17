@@ -7,10 +7,14 @@ export interface SseMessage {
 /**
  * Parse a `text/event-stream` body into messages. `EventSource` can't POST, so
  * callers that need a request body read the stream themselves with `fetch()`.
- * Comment lines (`: ping`) are skipped. A trailing event with no blank line
- * after it is dropped, since the stream was cut mid-event.
+ * Comment lines (`: ping`) are skipped, but `onActivity` hears every block, comments
+ * included, so a caller can tell a quiet stream from a dead one. A trailing event with
+ * no blank line after it is dropped, since the stream was cut mid-event.
  */
-export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator<SseMessage> {
+export async function* readSse(
+  body: ReadableStream<Uint8Array>,
+  { onActivity }: { onActivity?: () => void } = {},
+): AsyncGenerator<SseMessage> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -23,6 +27,7 @@ export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator
       while ((end = buffer.search(/\r?\n\r?\n/)) !== -1) {
         const block = buffer.slice(0, end)
         buffer = buffer.slice(end).replace(/^\r?\n\r?\n/, '')
+        onActivity?.()
         const message = parseBlock(block)
         if (message) yield message
       }
