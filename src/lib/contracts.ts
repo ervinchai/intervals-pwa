@@ -207,6 +207,14 @@ export const BrewLogInputSchema = z.object({
   aftertaste: z.number().min(1).max(5).optional(),
   adjustment: z.string().optional(),
   notes: z.string().optional(),
+  /** The AI's reading of the shot, made before it was logged: the server keeps it beside the brew (one per brew), not in Notion. */
+  analysis: z
+    .object({
+      items: z.array(z.record(z.string(), z.unknown())),
+      taste: BrewResultSchema.optional(),
+      thoughtS: z.number().optional(),
+    })
+    .optional(),
   /** The shot as the scale read it (see `ShotRecord` in flow.ts): the server keeps it beside the brew, not in Notion. */
   shot: z
     .object({
@@ -293,6 +301,76 @@ export const ScaleReadingSchema = z.object({
   flow: z.number().nullable().optional(),
 })
 
+/** The scale's record of a logged shot (`GET /coffee/beans/:id/brews/:brewId/shot`); see `ShotRecord` in flow.ts. */
+export const ShotRecordSchema = z.object({
+  summary: z.object({
+    timedBy: z.enum(['pump', 'hand']).nullable().catch(null),
+    firstDripS: z.number().nullable().catch(null),
+    flowS: z.number().nullable().catch(null),
+    avgFlowGs: z.number().nullable().catch(null),
+    plateauFlowGs: z.number().nullable().catch(null),
+    peakFlowGs: z.number().nullable().catch(null),
+  }),
+  points: z.array(z.tuple([z.number(), z.number(), z.number()])),
+})
+
+/**
+ * One item of the AI's reading of a shot (`POST /coffee/beans/:id/shot_analyses` streams them, one `item`
+ * event each). They come in this order: one `summary`, up to three `suggestion`s (the one to make on the
+ * next shot first), the `observation`s (what the curve shows at `atS` seconds since its start, or over a
+ * stretch to `untilS`; the other scopes have no time), and one `verdict` (how sure the AI is, and what it lacked).
+ */
+export const ShotAnalysisItemSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('summary'), text: z.string() }),
+  z.object({
+    kind: z.literal('suggestion'),
+    variable: z.string().nullable().optional(),
+    change: z.string(),
+    why: z.string(),
+    expect: z.string(),
+  }),
+  z.object({
+    kind: z.literal('observation'),
+    /** `moment`: at `atS`, or from `atS` to `untilS`, on the curve. `shot`: the whole curve. `previous`: against the previous shot. */
+    scope: z.enum(['moment', 'shot', 'previous']).catch('shot'),
+    atS: z.number().nullable(),
+    untilS: z.number().nullable().optional(),
+    phase: z.string().nullable().optional(),
+    finding: z.string(),
+    /** Two or three words naming a `moment` finding on the graph, such as "Flow dip". */
+    label: z.string().nullable().optional(),
+    /** Why it likely happens, in plain words, starting "Likely". */
+    why: z.string().nullable().optional(),
+    severity: z.enum(['good', 'info', 'minor', 'major']).catch('info'),
+  }),
+  z.object({
+    kind: z.literal('verdict'),
+    confidence: z.enum(['low', 'medium', 'high']).catch('low'),
+    missing: z.array(z.string()),
+  }),
+])
+
+/** What the analysis stream says while it runs: `thinking` text and `done` have no payload to check beyond this. */
+export const ShotAnalysisThinkingSchema = z.object({ text: z.string() })
+export const ShotAnalysisErrorSchema = z.object({ reason: z.string().optional() })
+
+/**
+ * The AI's saved reading of a logged shot (`GET /coffee/beans/:id/brews/:brewId/shot_analysis`): the items it
+ * wrote, the taste the shot had when it was read (to tell that the reading is out of date), the seconds it
+ * thought before its first item, and when it was made. An item that no longer fits its contract is dropped.
+ */
+export const SavedAnalysisSchema = z.object({
+  items: z.array(z.unknown()).transform((items) =>
+    items.flatMap((item) => {
+      const parsed = ShotAnalysisItemSchema.safeParse(item)
+      return parsed.success ? [parsed.data] : []
+    }),
+  ),
+  taste: BrewResultSchema.nullable().catch(null),
+  thoughtS: z.number().nullable().catch(null),
+  analysedAt: z.string(),
+})
+
 /** Whether the scale is connected, on the scale stream: first when it opens, then on each change. */
 export const ScaleStatusSchema = z.object({
   connected: z.boolean(),
@@ -337,3 +415,7 @@ export type PrintStatusEvent = z.infer<typeof PrintStatusEventSchema>
 export type ScaleReading = z.infer<typeof ScaleReadingSchema>
 export type ScaleCommand = z.infer<typeof ScaleCommandSchema>
 export type PumpSignal = ScaleReading['pump']
+export type ShotAnalysisItem = z.infer<typeof ShotAnalysisItemSchema>
+export type SavedAnalysis = z.infer<typeof SavedAnalysisSchema>
+/** A finished reading of a shot, as the overview holds it and sends it with the brew when it is logged. */
+export type AnalysisSnapshot = { items: ShotAnalysisItem[]; taste?: BrewResult; thoughtS?: number }

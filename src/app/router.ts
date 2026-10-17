@@ -1,4 +1,4 @@
-import type { BrewResult } from '@/lib/contracts'
+import type { AnalysisSnapshot, BrewResult } from '@/lib/contracts'
 import type { ShotRecord } from '@/lib/flow'
 import { createContext, useContext } from 'react'
 
@@ -35,6 +35,8 @@ export type ShotResult = {
   result?: BrewResult
   /** The shot as the scale read it, saved with the brew. */
   record?: ShotRecord
+  /** The AI's reading of the shot, when it was asked and is not out of date: saved with the brew. */
+  analysis?: AnalysisSnapshot
 }
 
 export type Screen =
@@ -47,6 +49,8 @@ export type Screen =
   | { name: 'bean'; beanId: string }
   | { name: 'brew'; beanId: string; shot?: ShotResult }
   | { name: 'espresso'; beanId: string; shot?: ShotResult }
+  /** The overview of a logged espresso brew: its numbers, taste, flow and an AI reading. */
+  | { name: 'shot'; beanId: string; brewId: string }
   | { name: 'settings' }
   | { name: 'scan' }
   | { name: 'print' }
@@ -108,6 +112,11 @@ function screenFromParts(name: string, param: string): Screen | null {
       return param ? { name: 'brew', beanId: param } : null
     case 'espresso':
       return param ? { name: 'espresso', beanId: param } : null
+    case 'shot': {
+      // "BN-3/<brew id>": the bean, then the brew.
+      const [beanId, brewId] = param.split('/')
+      return beanId && brewId ? { name: 'shot', beanId, brewId } : null
+    }
     case 'settings':
       return { name: 'settings' }
     case 'scan':
@@ -148,6 +157,8 @@ export function screenToString(screen: Screen): string {
       return `brew:${screen.beanId}`
     case 'espresso':
       return `espresso:${screen.beanId}`
+    case 'shot':
+      return `shot:${screen.beanId}/${screen.brewId}`
     default:
       return screen.name
   }
@@ -171,6 +182,8 @@ export function screenToPath(screen: Screen): string {
       return `/brew/${encodeURIComponent(screen.beanId)}`
     case 'espresso':
       return `/espresso/${encodeURIComponent(screen.beanId)}`
+    case 'shot':
+      return `/shot/${encodeURIComponent(screen.beanId)}/${encodeURIComponent(screen.brewId)}`
     default:
       return `/${screen.name}`
   }
@@ -185,12 +198,15 @@ export function screenFromPath(pathname: string): Screen | null {
   const segments = pathname.split('/').filter(Boolean)
   if (segments.length === 0) return { name: 'today' }
   const name = segments[0]
-  let param = segments[1] ?? ''
-  try {
-    param = decodeURIComponent(param)
-  } catch {
-    // Malformed escape — fall back to the raw segment.
+  const decode = (segment: string) => {
+    try {
+      return decodeURIComponent(segment)
+    } catch {
+      return segment // Malformed escape — fall back to the raw segment.
+    }
   }
+  // A shot is addressed by two segments, the bean and the brew; every other screen by one.
+  const param = name === 'shot' ? segments.slice(1, 3).map(decode).join('/') : decode(segments[1] ?? '')
   return screenFromParts(name, param)
 }
 

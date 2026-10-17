@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import { cn } from '@/lib/cn'
 
 /** How the card is coloured: neutral, or one of the three accents as a low-opacity tint. */
@@ -24,8 +26,9 @@ const TINT: Record<CueTone, { box: string; headline: string }> = {
  * What to do right now, in one card. The headline is in the display serif at a size that can be
  * read from across the counter, with the numbers behind it in one quiet line. Only the headline is
  * announced to a screen reader: the line under it changes eight times a second.
+ * `children` go under a thin rule at the foot of the card: what else there is to say about the shot.
  */
-export function StopCard({ cue }: { cue: Cue }) {
+export function StopCard({ cue, children }: { cue: Cue; children?: ReactNode }) {
   const tint = TINT[cue.tone]
   return (
     <div
@@ -42,8 +45,9 @@ export function StopCard({ cue }: { cue: Cue }) {
       >
         {cue.headline}
       </div>
-      <div className={cn('mt-2.5 text-[1.125rem] leading-snug tabular-nums', !cue.solid && 'text-ink')}>{cue.detail}</div>
+      {cue.detail ? <div className={cn('mt-2.5 text-[1.125rem] leading-snug tabular-nums', !cue.solid && 'text-ink')}>{cue.detail}</div> : null}
       <div className={cn('mt-0.5 min-h-5 text-[0.875rem]', !cue.solid && 'text-ink-dim')}>{cue.hint ?? ''}</div>
+      {children ? <div className="mt-3 border-t border-line pt-3">{children}</div> : null}
     </div>
   )
 }

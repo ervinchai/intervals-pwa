@@ -10,10 +10,10 @@ import { SetupStep } from '@/components/shot/SetupStep'
 import { StepRail, type RailStep } from '@/components/shot/StepRail'
 import { AsyncScreen } from '@/components/ScreenState'
 import { Badge, Button, Heading, Row, Spacer, Stack, Text } from '@/components/ui'
-import type { BrewResult, CoffeeBean } from '@/lib/contracts'
+import type { AnalysisSnapshot, BrewResult, CoffeeBean } from '@/lib/contracts'
 import type { ShotRecord } from '@/lib/flow'
 import { lastBrewTemp, numberIn, parseTarget, saveBrewTemp, startingGrind, suggestGrind } from '@/lib/coffee-utils'
-import { fetchCoffeeBean, logBrew } from '@/lib/data'
+import { analyseShot, fetchCoffeeBean, logBrew } from '@/lib/data'
 import { useResource } from '@/lib/useResource'
 
 /** The shot time to start from when the recipe has none, in seconds. It is only used when the shot is typed in. */
@@ -128,6 +128,14 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
   }
 
   // The one-tap taste on the overview. Tapping the chosen one again clears it.
+  // The overview reports the AI's reading of the shot when it has a current one; it goes with the brew when it is
+  // logged, here or on the rating screen.
+  const rememberAnalysis = useCallback((analysis: AnalysisSnapshot | null) => {
+    setResult((previous) =>
+      previous && previous.shot.analysis !== (analysis ?? undefined) ? { ...previous, shot: { ...previous.shot, analysis: analysis ?? undefined } } : previous,
+    )
+  }, [])
+
   const setTaste = (taste: BrewResult) =>
     setResult((previous) => (previous ? { ...previous, shot: { ...previous.shot, result: previous.shot.result === taste ? undefined : taste } } : previous))
 
@@ -154,6 +162,7 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
         waterTempC: finished.tempC,
         result: finished.result,
         shot: finished.record,
+        analysis: finished.analysis,
       })
       leave()
     } catch (err) {
@@ -229,6 +238,20 @@ function Flow({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
           onTaste={setTaste}
           onSave={() => void saveShot()}
           onDiscard={leave}
+          initialAnalysis={result.shot.analysis}
+          onAnalysis={rememberAnalysis}
+          analyse={(handlers) =>
+            analyseShot(bean.id, {
+              grind: result.shot.grind.toFixed(1),
+              doseG: result.shot.doseG,
+              yieldG: result.shot.yieldG,
+              timeS: result.shot.timeS === undefined ? undefined : Math.round(result.shot.timeS),
+              waterTempC: result.shot.tempC,
+              targetG: result.shot.targetG,
+              result: result.shot.result,
+              record: result.shot.record,
+            }, handlers)
+          }
         />
       ) : mode === 'scale' ? (
         <PullStep

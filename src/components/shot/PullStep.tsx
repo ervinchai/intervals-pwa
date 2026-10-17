@@ -10,6 +10,7 @@ import {
   NOT_FINISHED,
   NO_LATCH,
   flowRate,
+  flowScaleMax,
   guideStop,
   latchCue,
   readShot,
@@ -60,9 +61,8 @@ function saveRunOn(seconds: number) {
 const MIN_TARGET_G = 10
 const MAX_TARGET_G = 80
 
-/** How far back the flow trace draws, in milliseconds, and the top of its scale in g/s. */
+/** How far back the flow trace draws, in milliseconds. */
 const TRACE_MS = 15_000
-const TRACE_MAX_FLOW = 3
 
 /**
  * The pull: the shot read from the scale under the cup. It is a glance-and-act step, so it is built in
@@ -161,10 +161,9 @@ export function PullStep({
     target,
   })
   const message = cueFor(cue, guide, shot, latched.finalWeight, target, scale.shotSeconds, scale.pump)
-  // While the scale is not live an overlay says why, over the pull. "Connecting" waits a moment before it
-  // shows, so a scale that is already on never flashes it.
-  const connectingLong = useDelayed(scale.connection === 'connecting', CONNECTING_GRACE_MS)
-  const overlay = scale.connection === 'connecting' && !connectingLong ? null : linkOverlay(scale.connection)
+  // Until the readings are coming an overlay covers the pull: "Waiting for scale…" from the first moment (it is
+  // the screen's starting state), and an error with a retry when the connection fails.
+  const overlay = linkOverlay(scale.connection)
   // Nothing flows before a shot, whatever a rough scale's noise says, nor before the cup was tared.
   const flowShown = scale.tared && phase !== 'idle' && shot.flowing
 
@@ -324,11 +323,15 @@ export function PullStep({
         <Button variant="ghost" onClick={onBack} disabled={running}>
           Back
         </Button>
-        <Button variant="secondary" onClick={scale.reset}>
-          Reset
-        </Button>
+        {/* Nothing to reset, and no pump to simulate, until the readings are coming: before that the pump signal
+            is only the default ("demo"), not what the machine really has. */}
+        {scale.connection === 'live' ? (
+          <Button variant="secondary" onClick={scale.reset}>
+            Reset
+          </Button>
+        ) : null}
         {/* Demo only: these stand in for the machine's pump, and the toggle makes the scale behave like a rough real one. */}
-        {scale.pump === 'demo' ? (
+        {scale.connection === 'live' && scale.pump === 'demo' ? (
           <>
             <Button variant="quiet" onClick={scale.start} disabled={phase !== 'idle' || scale.connection !== 'live'}>
               Start pump
@@ -479,7 +482,7 @@ function ShotCard({
       </Row>
       <div className="min-h-0 flex-1">
         {tared ? (
-          <FlowTrace trace={trace} maxFlow={TRACE_MAX_FLOW} origin={origin} />
+          <FlowTrace trace={trace} maxFlow={flowScaleMax(trace?.points ?? [])} origin={origin} />
         ) : (
           <div className="flex h-full items-center justify-center rounded-card border border-dashed border-line px-4 text-center">
             <Text size="sm" tone="faint">
@@ -530,37 +533,38 @@ function verdictNote(grams: number, target: number): string {
   return state === 'over' ? `${difference} g over target` : `${difference} g short of target`
 }
 
-/** How long "Connecting" waits before it shows, in milliseconds: a scale that is on is live before then. */
-const CONNECTING_GRACE_MS = 700
-
 /** What the overlay says while the scale is not live, and whether reconnecting is up to the person. */
 type LinkOverlay = { headline: string; detail: string; canRetry: boolean }
 
-/** The overlay for a connection state, or null when the readings are coming. */
+/**
+ * The overlay for a connection state, or null when the readings are coming. Opening the connection and waiting
+ * for a scale that is off are one state to the person: "Waiting for scale…". A connection that failed is an error
+ * the person can do nothing about but try again, so it says so and offers a retry; one that cannot be repeated
+ * (no server set) offers none.
+ */
 function linkOverlay(connection: ScaleConnection): LinkOverlay | null {
   switch (connection) {
     case 'live':
       return null
     case 'connecting':
-      return { headline: 'Connecting', detail: 'Opening the scale through the server…', canRetry: false }
     case 'waiting':
       return {
-        headline: 'Turn on the scale',
-        detail: 'It connects by itself through Home Assistant, and this goes away when the readings start.',
+        headline: 'Waiting for scale…',
+        detail: 'Make sure the scale is turned on and in range of the Bluetooth proxy. The scale will connect automatically.',
         canRetry: false,
       }
     case 'unreachable':
-      return { headline: 'Can’t reach the scale', detail: 'The server or Home Assistant is not answering.', canRetry: true }
+      return { headline: 'An unknown error occurred', detail: 'The server or Home Assistant did not answer, so the scale could not be read.', canRetry: true }
     case 'lost':
-      return { headline: 'The scale stream stopped', detail: 'The server stopped sending readings.', canRetry: true }
+      return { headline: 'An unknown error occurred', detail: 'The readings stopped coming from the server.', canRetry: true }
     case 'unconfigured':
       return { headline: 'No server set', detail: 'The scale is read through the server. Set railsBaseUrl in config.json.', canRetry: false }
   }
 }
 
 /**
- * Covers the pull while the scale is not live, with the way through by hand. "Reconnect" is offered only when
- * the server dropped the stream: a scale that is off needs nothing from here, Home Assistant connects it.
+ * Covers the pull while the scale is not live, with the way through by hand. "Retry" is offered only when
+ * the connection failed and trying again can help: a scale that is off needs nothing from here, Home Assistant connects it.
  */
 function ScaleOverlay({ overlay, onRetry, onManual }: { overlay: LinkOverlay; onRetry: () => void; onManual: () => void }) {
   return (
@@ -574,7 +578,7 @@ function ScaleOverlay({ overlay, onRetry, onManual }: { overlay: LinkOverlay; on
           <Spacer />
           {overlay.canRetry ? (
             <Button variant="secondary" onClick={onRetry}>
-              Reconnect
+              Retry
             </Button>
           ) : null}
           <Button variant="primary" onClick={onManual}>
@@ -584,20 +588,6 @@ function ScaleOverlay({ overlay, onRetry, onManual }: { overlay: LinkOverlay; on
       </Card>
     </div>
   )
-}
-
-/** `on`, but only once it has stayed true for `ms`: for a state that should not flash when it is brief. */
-function useDelayed(on: boolean, ms: number): boolean {
-  const [late, setLate] = useState(false)
-  useEffect(() => {
-    if (!on) return
-    const id = setTimeout(() => setLate(true), ms)
-    return () => {
-      clearTimeout(id)
-      setLate(false)
-    }
-  }, [on, ms])
-  return on && late
 }
 
 /** What the card at the top says for a cue, and how it is coloured. */

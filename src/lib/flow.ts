@@ -111,6 +111,73 @@ export const FLOW_ENTER = 0.25
 export const FLOW_EXIT = 0.1
 
 /**
+ * The flow for drawing, smoothed with a local quadratic fit (Savitzky-Golay): each point becomes the value of
+ * a parabola fitted by least squares to the flow within `windowMs` around it (half either side), by time, so
+ * readings that are unevenly spaced count fairly. Unlike a plain average, a parabola can follow a peak or a
+ * dip, so these keep their height and depth while the 0.1 g steps of the scale's flow are taken off. A fit
+ * is held between the lowest and highest reading in its window, so it never draws a peak that was not there
+ * (the ends of the shot, where the window is one-sided, would otherwise swing). It is for the picture only:
+ * the record and the AI keep the readings as they came.
+ */
+export function smoothFlow(points: ReadonlyArray<{ t: number; f: number }>, windowMs: number): Array<{ t: number; f: number }> {
+  const half = windowMs / 2
+  const out: Array<{ t: number; f: number }> = []
+  let lo = 0
+  let hi = 0
+  for (const { t } of points) {
+    while (hi < points.length && points[hi].t <= t + half) hi++
+    while (points[lo].t < t - half) lo++
+    out.push({ t, f: fitAt(points, lo, hi, t) })
+  }
+  return out
+}
+
+/** The value at `t` of the parabola fitted to points[lo, hi); the mean when there are too few points to fit one. */
+function fitAt(points: ReadonlyArray<{ t: number; f: number }>, lo: number, hi: number, t: number): number {
+  const count = hi - lo
+  let sum = 0
+  let low = Infinity
+  let high = -Infinity
+  // Moments of x (seconds from `t`) and of f against x, for the normal equations of f = a + b·x + c·x².
+  let s1 = 0, s2 = 0, s3 = 0, s4 = 0, y1 = 0, y2 = 0
+  for (let i = lo; i < hi; i++) {
+    const { t: pt, f } = points[i]
+    const x = (pt - t) / 1000
+    sum += f
+    low = Math.min(low, f)
+    high = Math.max(high, f)
+    s1 += x
+    s2 += x * x
+    s3 += x ** 3
+    s4 += x ** 4
+    y1 += f * x
+    y2 += f * x * x
+  }
+  if (count < 4) return sum / count
+  // Cramer's rule for `a` (the fit at x = 0): det of the matrix with the first column replaced by the sums of f.
+  const det = (m: number[][]) =>
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+  const denominator = det([[count, s1, s2], [s1, s2, s3], [s2, s3, s4]])
+  if (Math.abs(denominator) < 1e-9) return sum / count
+  const a = det([[sum, s1, s2], [y1, s2, s3], [y2, s3, s4]]) / denominator
+  return Math.min(Math.max(a, low), high)
+}
+
+/** The graph's scale never goes below this many g/s: a normal shot flows 1 to 3 g/s. */
+const FLOW_SCALE_FLOOR = 3
+/** ...and never above this: a shot that flows faster is a blown puck, and the line may run off the top. */
+const FLOW_SCALE_CEILING = 6
+
+/**
+ * The top of a flow graph's scale, in whole g/s: the floor, or the next whole number above the peak when the
+ * flow went higher. During a timed pull the points only grow, so the scale only ever steps up.
+ */
+export function flowScaleMax(points: ReadonlyArray<{ f: number }>): number {
+  const peak = points.reduce((max, point) => Math.max(max, point.f), 0)
+  return Math.min(FLOW_SCALE_CEILING, Math.max(FLOW_SCALE_FLOOR, Math.ceil(peak)))
+}
+
+/**
  * The weight counts as settled when it has moved no more than `STABLE_ENTER_G` over the last
  * `FLOW_WINDOW_MS`, and stays settled until it moves more than `STABLE_EXIT_G`. Judging the weight
  * itself, not a tiny slope, is what a noisy scale can be trusted with: a slope of 0.05 g/s is

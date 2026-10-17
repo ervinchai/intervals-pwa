@@ -257,4 +257,22 @@
       transform: translateX(100%);
     }
   }
+
+  /* A part of the AI's reading as it arrives: a short rise and fade, none when motion is reduced. */
+  .arrive {
+    animation: arrive 0.25s ease-out;
+  }
+
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .arrive {
+      animation: none;
+    }
+  }
 }

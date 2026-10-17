@@ -48,12 +48,16 @@ function messageFor(status: number, code: string, retryAfter: number | undefined
       return 'Notion could not be reached. Try again.'
     case 'notion_not_configured':
       return 'The server is not connected to Notion yet.'
+    case 'llm_not_configured':
+      return 'The server has no AI model set up (GEMINI_API_KEY).'
+    case 'analysis_failed':
+      return 'The AI could not read this shot. Try again.'
     default:
       return `The server answered ${status}. Try again.`
   }
 }
 
-async function errorFrom(res: Response): Promise<RailsError> {
+export async function errorFrom(res: Response): Promise<RailsError> {
   let body: ErrorBody = {}
   try {
     body = (await res.json()) as ErrorBody

@@ -4,6 +4,7 @@ import type {
   BrewLogInput,
   CoffeeBean,
   CoffeeBeanSummary,
+  ShotAnalysisItem,
 } from '@/lib/contracts'
 
 /**
@@ -189,4 +190,19 @@ export function mockCreateBean(input: BeanCreateInput): CoffeeBeanSummary {
   BEANS[id] = bean
   const { name, roaster, origin, roastLevel, roastDate, status } = bean
   return { id, name, roaster, origin, roastLevel, roastDate, status }
+}
+
+/** A canned shot analysis for mock mode: the items in the order the server streams them. */
+export function mockShotAnalysisItems(): ShotAnalysisItem[] {
+  return [
+    { kind: 'summary', text: 'Flow climbed steadily instead of holding a plateau; the stop came about 1 g late.' },
+    { kind: 'suggestion', variable: 'grind', change: 'Grind 0.2 finer', why: 'A rising plateau points to a puck that loosens as it runs.', expect: 'A flatter plateau near 2 g/s.' },
+    { kind: 'suggestion', variable: 'yield', change: 'Stop 1 g sooner', why: 'The run-on added about 1 g after the stop.', expect: 'Ends on the intended weight.' },
+    { kind: 'observation', scope: 'moment', atS: 6, phase: 'preinfusion', finding: 'First drops at 6 s: the puck saturated evenly.', label: 'First drops', severity: 'good' },
+    { kind: 'observation', scope: 'moment', atS: 14, untilS: 24, phase: 'plateau', finding: 'Flow kept rising past 2 g/s rather than holding steady.', label: 'Rising plateau', why: 'Likely the puck loosens as it runs, so the water meets less resistance.', severity: 'minor' },
+    { kind: 'observation', scope: 'moment', atS: 27, phase: 'stop', finding: 'Stopped at 38 g and coasted to 39.1 g.', label: 'Run-on', why: 'Likely the last water already in the puck kept dripping after the pump stopped.', severity: 'info' },
+    { kind: 'observation', scope: 'shot', atS: null, phase: 'whole', finding: 'The curve has the shape of a clean, even extraction.', severity: 'good' },
+    { kind: 'observation', scope: 'previous', atS: null, phase: 'whole', finding: 'Plateau flow rose 0.4 g/s after the finer grind.', severity: 'info' },
+    { kind: 'verdict', confidence: 'medium', missing: ['Grinder direction is not confirmed.'] },
+  ]
 }

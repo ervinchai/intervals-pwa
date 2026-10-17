@@ -141,6 +141,8 @@ function Session({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
       adjustment: adjustment.trim() || undefined,
       notes: notes.trim() || undefined,
       shot: shot?.record,
+      // The AI's reading of the shot goes along only while it is current: a taste changed here makes it out of date.
+      analysis: shot?.analysis && shot.analysis.taste === (result || undefined) ? shot.analysis : undefined,
     }
     try {
       await logBrew(input)

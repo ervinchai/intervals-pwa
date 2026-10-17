@@ -1,4 +1,4 @@
-import { ArrowLeft, Printer, Target, X } from 'lucide-react'
+import { ArrowLeft, ChartSpline, Printer, Target, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
@@ -253,6 +253,7 @@ export function BeanView({ beanId }: { beanId: string }) {
                     brew={selectedBrew}
                     onBack={() => setSelectedBrew(null)}
                     onMarkTarget={() => handleMarkTarget(selectedBrew)}
+                    onOpenOverview={() => navigate({ name: 'shot', beanId, brewId: selectedBrew.id })}
                     marking={marking}
                     error={markError?.brewId === selectedBrew.id ? markError.message : null}
                   />
@@ -653,12 +654,15 @@ function BrewDetail({
   brew,
   onBack,
   onMarkTarget,
+  onOpenOverview,
   marking,
   error,
 }: {
   brew: BrewLogEntry
   onBack: () => void
   onMarkTarget: () => void
+  /** Open the shot's overview: its flow, taste and the AI's reading. Espresso only. */
+  onOpenOverview: () => void
   marking: boolean
   error: string | null
 }) {
@@ -712,6 +716,13 @@ function BrewDetail({
           {brew.notes ? <Text size="sm" tone="dim">{brew.notes}</Text> : null}
         </Stack>
       )}
+
+      {brew.method === 'Espresso' ? (
+        <Button variant="primary" size="lg" full onClick={onOpenOverview} className="mt-2 gap-2">
+          <ChartSpline className="h-5 w-5" />
+          Open overview
+        </Button>
+      ) : null}
 
       <Button variant="quiet" size="sm" onClick={onMarkTarget} disabled={marking || brew.isTarget} className="mt-4">
         <Target className="mr-0.5 h-4 w-4" />
