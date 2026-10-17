@@ -264,6 +264,42 @@ export const PrintStreamErrorSchema = z.object({
   reason: PrintReasonSchema.default('service_unavailable'),
 })
 
+/**
+ * One `reading` event from the Rails `GET /coffee/scale/stream`. `t` is milliseconds on the scale's
+ * own clock (only differences mean anything), `g` the weight after tare. `epoch` goes up on every
+ * tare: readings of different epochs are different shots. `rough` says the scale is behaving like
+ * a rough one.
+ */
+export const ScaleReadingSchema = z.object({
+  t: z.number(),
+  g: z.number(),
+  phase: z.enum(['idle', 'running', 'stopped']),
+  epoch: z.number().int(),
+  rough: z.boolean(),
+  /**
+   * Where `phase` comes from: `demo` (the simulated machine, driven by the Start and Stop buttons), `sensor`
+   * (a pump sensor on the real machine) or `none` (the real scale with no pump sensor: `phase` stays idle and
+   * the screen reads the shot from the flow). An older server sends nothing, and it only had the simulation.
+   */
+  pump: z.enum(['demo', 'sensor', 'none']).default('demo'),
+  /** The scale's own flow rate in g/s (the real Dot sends it); absent from the simulation, which is then estimated. */
+  flow: z.number().nullable().optional(),
+})
+
+/** What the simulated machine can be told to do (`POST /coffee/scale/commands`). */
+export const ScaleCommandSchema = z.enum(['start', 'stop_pump', 'tare'])
+
+/** The reply to a command. `accepted` is false when it made no sense now (a pump that already ran). */
+export const ScaleCommandReplySchema = z.object({
+  command: ScaleCommandSchema,
+  accepted: z.boolean(),
+})
+
+/** The reply to `PATCH /coffee/scale`: the setting as it now is. */
+export const ScaleSettingsReplySchema = z.object({
+  rough: z.boolean(),
+})
+
 export type Ingredient = z.infer<typeof IngredientSchema>
 export type Recipe = z.infer<typeof RecipeSchema>
 export type RecipeSummary = z.infer<typeof RecipeSummarySchema>
@@ -285,3 +321,6 @@ export type BeanCreateInput = z.infer<typeof BeanCreateInputSchema>
 export type PrintLabelInput = z.infer<typeof PrintLabelInputSchema>
 export type PrintReason = z.infer<typeof PrintReasonSchema>
 export type PrintStatusEvent = z.infer<typeof PrintStatusEventSchema>
+export type ScaleReading = z.infer<typeof ScaleReadingSchema>
+export type ScaleCommand = z.infer<typeof ScaleCommandSchema>
+export type PumpSignal = ScaleReading['pump']

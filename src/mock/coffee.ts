@@ -148,6 +148,14 @@ export function mockSetTargetBrew(beanId: string, brewId: string): CoffeeBean {
   return bean
 }
 
+/** Change a bean's status in the in-memory store and return it. */
+export function mockSetBeanStatus(beanId: string, status: string): CoffeeBean {
+  const bean = BEANS[beanId]
+  if (!bean) throw new Error(`No mock bean "${beanId}"`)
+  bean.status = status
+  return bean
+}
+
 /** Reserve the next bean id, so a create form can preview its printable code. */
 export function mockNextBeanId(): string {
   return `BN-${nextBean}`

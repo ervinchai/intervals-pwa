@@ -20,6 +20,7 @@ function sameScreen(a: Screen, b: Screen): boolean {
   if (a.name === 'recipe' && b.name === 'recipe') return a.recipeId === b.recipeId
   if (a.name === 'bean' && b.name === 'bean') return a.beanId === b.beanId
   if (a.name === 'brew' && b.name === 'brew') return a.beanId === b.beanId
+  if (a.name === 'espresso' && b.name === 'espresso') return a.beanId === b.beanId
   return true
 }
 
@@ -52,6 +53,11 @@ export function RouterProvider({
       // A repeated tap on the current screen should not grow the history.
       return sameScreen(current, next) ? prev : [...prev, next]
     })
+  }, [])
+
+  const replace = useCallback((next: Screen) => {
+    setIsRemote(false)
+    setStack((prev) => [...prev.slice(0, -1), next])
   }, [])
 
   // Phase 5 hands this to the HA subscription so a pushed screen can be
@@ -98,12 +104,13 @@ export function RouterProvider({
     () => ({
       screen,
       navigate,
+      replace,
       navigateRemote,
       back,
       canGoBack: stack.length > 1,
       isRemote,
     }),
-    [screen, navigate, navigateRemote, back, stack.length, isRemote],
+    [screen, navigate, replace, navigateRemote, back, stack.length, isRemote],
   )
 
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui'
 import type { CoffeeBeanSummary } from '@/lib/contracts'
 import { fetchCoffeeCollection } from '@/lib/data'
-import { daysOffRoast, freshness, parseTarget } from '@/lib/coffee-utils'
+import { BEAN_STATUSES, daysOffRoast, freshness, parseTarget } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
 /**
@@ -32,8 +32,16 @@ export function Beans() {
       skeleton={<BeansSkeleton />}
     >
       {({ beans }) => {
-        const open = beans.filter((b) => b.status === 'Open')
-        const rest = beans.filter((b) => b.status !== 'Open')
+        // One section per status, in GROUP_ORDER. A bean whose status is not one of the three
+        // (or is blank) goes in "Other" instead of being called finished.
+        const groups = GROUP_ORDER.map((title) => ({
+          title,
+          beans:
+            title === 'Other'
+              ? beans.filter((b) => !BEAN_STATUSES.some((status) => status === b.status))
+              : beans.filter((b) => b.status === title),
+        })).filter((group) => group.beans.length > 0)
+        const openCount = beans.filter((b) => b.status === 'Open').length
 
         return (
           <Stack gap="lg" className="h-full">
@@ -43,7 +51,7 @@ export function Beans() {
               </Heading>
               <Spacer />
               <Text size="sm" tone="faint">
-                {beans.length} bags · {open.length} open
+                {beans.length} bags · {openCount} open
               </Text>
               <Button
                 size="icon"
@@ -64,16 +72,16 @@ export function Beans() {
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <Stack gap="lg">
-                  {open.length > 0 ? (
-                    <Stack gap="sm">
+                  {groups.map((group) => (
+                    <Stack gap="sm" key={group.title}>
                       <Row gap="sm" className="px-[14px]">
                         <Heading role="label" as="span" tone="faint">
-                          Open
+                          {group.title}
                         </Heading>
                         <div className="h-px flex-1 bg-line" />
                       </Row>
                       <Stack gap="sm">
-                        {open.map((b) => (
+                        {group.beans.map((b) => (
                           <BeanRow
                             key={b.id}
                             bean={b}
@@ -82,27 +90,7 @@ export function Beans() {
                         ))}
                       </Stack>
                     </Stack>
-                  ) : null}
-
-                  {rest.length > 0 ? (
-                    <Stack gap="sm">
-                      <Row gap="sm" className="px-[14px]">
-                        <Heading role="label" as="span" tone="faint">
-                          Finished
-                        </Heading>
-                        <div className="h-px flex-1 bg-line" />
-                      </Row>
-                      <Stack gap="sm">
-                        {rest.map((b) => (
-                          <BeanRow
-                            key={b.id}
-                            bean={b}
-                            onPick={() => navigate({ name: 'bean', beanId: b.id })}
-                          />
-                        ))}
-                      </Stack>
-                    </Stack>
-                  ) : null}
+                  ))}
                 </Stack>
               </div>
             )}
@@ -112,6 +100,13 @@ export function Beans() {
     </AsyncScreen>
   )
 }
+
+/** The order the sections appear in: what is in use first, what is done last. */
+const GROUP_ORDER = ['Open', 'Sealed', 'Finished', 'Other']
+
+/** The parts that have a value, joined with " · ", so an empty field leaves no stray separator. */
+const joinParts = (...parts: Array<string | number | null | undefined>) =>
+  parts.filter((part) => part !== null && part !== undefined && part !== '').join(' · ')
 
 function BeanRow({
   bean,
@@ -145,7 +140,7 @@ function BeanRow({
             tone="dim"
             className="overflow-hidden text-ellipsis whitespace-nowrap"
           >
-            {bean.roaster} · {bean.origin} · {bean.process}
+            {joinParts(bean.roaster, bean.origin, bean.process)}
           </Text>
         </Stack>
 
@@ -167,7 +162,7 @@ function BeanRow({
             {fresh.text}
           </Text>
           <Text size="xs" tone="faint">
-            {bean.roastLevel} · {bean.weightG} g
+            {joinParts(bean.roastLevel, bean.weightG ? `${bean.weightG} g` : null)}
           </Text>
         </Stack>
 

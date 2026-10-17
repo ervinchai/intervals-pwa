@@ -10,6 +10,27 @@ import { createContext, useContext } from 'react'
  * Kept separate from RouterProvider so this module exports no components —
  * mixing the two breaks React Fast Refresh.
  */
+/**
+ * What the espresso flow hands to the brew log: the grind it was set to, the dose that went in, the
+ * yield (the weight the scale read, or the number typed in by hand with `manual`) and the yield it was
+ * aimed at. `scaleG` is what the scale read, kept even after the yield is edited by hand; once it is there the
+ * scale is not offered again for this shot. `tempC` is the water temperature chosen on the pull step. `timeS` is the shot time, from the pump
+ * switching on to switching off (not from the first drip), or typed in by hand. Without a pump signal there is none,
+ * and the brew log starts from the recipe's time. The same object goes back to the espresso screen when the brew log's Back is
+ * pressed, so the flow reopens on the pull with everything kept. It rides along with the screen and is not
+ * part of the URL, so a reload starts without it.
+ */
+export type ShotResult = {
+  grind: number
+  doseG: number
+  yieldG: number
+  targetG: number
+  tempC: number
+  scaleG?: number
+  timeS?: number
+  manual?: boolean
+}
+
 export type Screen =
   | { name: 'today' }
   | { name: 'meal-plan' }
@@ -18,7 +39,8 @@ export type Screen =
   | { name: 'beans' }
   | { name: 'new-bean' }
   | { name: 'bean'; beanId: string }
-  | { name: 'brew'; beanId: string }
+  | { name: 'brew'; beanId: string; shot?: ShotResult }
+  | { name: 'espresso'; beanId: string; shot?: ShotResult }
   | { name: 'settings' }
   | { name: 'scan' }
   | { name: 'print' }
@@ -29,6 +51,11 @@ export type RouterValue = {
   screen: Screen
   /** Navigate from a user tap. */
   navigate: (screen: Screen) => void
+  /**
+   * Swap the current screen for another, so back skips it. For a screen that only leads on to the
+   * next one, such as the shot, which hands over to the brew log.
+   */
+  replace: (screen: Screen) => void
   /** Navigate on behalf of Home Assistant. */
   navigateRemote: (screen: Screen) => void
   /** Return to the previously viewed screen. No-op with no history. */
@@ -73,6 +100,8 @@ function screenFromParts(name: string, param: string): Screen | null {
       return param ? { name: 'bean', beanId: param } : null
     case 'brew':
       return param ? { name: 'brew', beanId: param } : null
+    case 'espresso':
+      return param ? { name: 'espresso', beanId: param } : null
     case 'settings':
       return { name: 'settings' }
     case 'scan':
@@ -111,6 +140,8 @@ export function screenToString(screen: Screen): string {
       return `bean:${screen.beanId}`
     case 'brew':
       return `brew:${screen.beanId}`
+    case 'espresso':
+      return `espresso:${screen.beanId}`
     default:
       return screen.name
   }
@@ -132,6 +163,8 @@ export function screenToPath(screen: Screen): string {
       return `/bean/${encodeURIComponent(screen.beanId)}`
     case 'brew':
       return `/brew/${encodeURIComponent(screen.beanId)}`
+    case 'espresso':
+      return `/espresso/${encodeURIComponent(screen.beanId)}`
     default:
       return `/${screen.name}`
   }

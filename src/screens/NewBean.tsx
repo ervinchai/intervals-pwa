@@ -11,12 +11,12 @@ import {
   Text,
 } from '@/components/ui'
 import type { BeanCreateInput } from '@/lib/contracts'
+import { BEAN_STATUSES } from '@/lib/coffee-utils'
 import { createBean } from '@/lib/data'
 
 const PROCESSES = ['Washed', 'Natural', 'Honey', 'Anaerobic', 'Other'] as const
 const ROAST_LEVELS = ['Light', 'Medium-Light', 'Medium', 'Medium-Dark', 'Dark'] as const
 const ROAST_PROFILES = ['Espresso', 'Filter', 'Omniroast'] as const
-const STATUSES = ['Sealed', 'Open', 'Finished'] as const
 
 /**
  * The "New bean" form — catalog a bag. Notion assigns the Bean ID and formats
@@ -166,7 +166,7 @@ export function NewBean() {
           </Field>
 
           <Field label="Status">
-            <Chips options={STATUSES} value={status} onPick={setStatus} />
+            <Chips options={BEAN_STATUSES} value={status} onPick={setStatus} />
           </Field>
 
           {error ? <Text tone="ember">{error}</Text> : null}

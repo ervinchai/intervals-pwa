@@ -1,8 +1,9 @@
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 
-import { useRouter } from '@/app/router'
+import { useRouter, type ShotResult } from '@/app/router'
 import { AsyncScreen } from '@/components/ScreenState'
+import { StepRail } from '@/components/shot/StepRail'
 import {
   Button,
   Card,
@@ -19,15 +20,22 @@ import {
 } from '@/components/ui'
 import type { BrewLogInput, BrewResult, CoffeeBean } from '@/lib/contracts'
 import { fetchCoffeeBean, logBrew } from '@/lib/data'
-import { CUP_AXES, formatBrewTime, parseTarget } from '@/lib/coffee-utils'
+import {
+  CUP_AXES,
+  brewKind,
+  defaultBrewMethod,
+  formatBrewTime,
+  formatShotClock as formatTime,
+  lastBrewTemp,
+  parseTarget,
+  saveBrewTemp,
+} from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
 const BREW_METHODS = ['Espresso', 'V60', 'AeroPress', 'French Press', 'Moka', 'Cold Brew'] as const
 const BREW_RESULTS: BrewResult[] = ['Sour / Under', 'Balanced', 'Bitter / Over']
 
-const TEMP_KEY = 'intervals:brew:lastTempC'
-
-export function BrewSession({ beanId }: { beanId: string }) {
+export function BrewSession({ beanId, shot }: { beanId: string; shot?: ShotResult }) {
   const bean = useResource(() => fetchCoffeeBean(beanId), [beanId])
 
   return (
@@ -37,9 +45,15 @@ export function BrewSession({ beanId }: { beanId: string }) {
       errorLabel="That bean would not load"
       skeleton={<BrewSessionSkeleton />}
     >
-      {(data) => <Session bean={data} />}
+      {(data) => <Session bean={data} shot={shot} />}
     </AsyncScreen>
   )
+}
+
+/** How the pull's yield was got, for the rail: nothing for a scale reading, else typed in or corrected. */
+function pullNote(shot: ShotResult): string {
+  if (shot.scaleG !== undefined) return shot.yieldG === shot.scaleG ? '' : ' · edited'
+  return shot.manual ? ' · by hand' : ''
 }
 
 function num(t: string | null | undefined): number | undefined {
@@ -59,24 +73,28 @@ function TargetHint({ value }: { value?: string }) {
   )
 }
 
-function Session({ bean }: { bean: CoffeeBean }) {
-  const { back, canGoBack, navigate } = useRouter()
+function Session({ bean, shot }: { bean: CoffeeBean; shot?: ShotResult }) {
+  const { back, canGoBack, replace } = useRouter()
   // A brew screen is always reached from its bean, but can also load fresh —
   // a QR scan, a shared link, an HA push — with no history behind it. Fall
-  // back to the bean detail rather than letting back() no-op in that case.
-  const goBack = () => (canGoBack ? back() : navigate({ name: 'bean', beanId: bean.id }))
+  // back to the bean detail rather than letting back() no-op in that case. The bean takes this screen's
+  // place: pushing it on top would make back go round in a circle.
+  const goBack = () => (canGoBack ? back() : replace({ name: 'bean', beanId: bean.id }))
   const target = parseTarget(bean.targetRecipe)
 
-  const [method, setMethod] = useState<string>(bean.brewMethods?.[0] ?? 'Espresso')
-  const [grind, setGrind] = useState(num(target?.grind) ?? 3)
-  const [dose, setDose] = useState(num(target?.dose) ?? 18)
-  const [yieldG, setYieldG] = useState(num(target?.yield) ?? 36)
-  const [time, setTime] = useState(num(target?.time) ?? 30)
+  // From the espresso flow it is an espresso, with the grind, dose, yield and temperature of the shot. The
+  // time is the pump's run time or the number typed in; without either it starts from the bean's target.
+  const [method, setMethod] = useState<string>(shot ? 'Espresso' : defaultBrewMethod(brewKind(bean.brewMethods)))
+  const [grind, setGrind] = useState(shot?.grind ?? num(target?.grind) ?? 3)
+  const [dose, setDose] = useState(shot?.doseG ?? num(target?.dose) ?? 18)
+  const [yieldG, setYieldG] = useState(shot?.yieldG ?? num(target?.yield) ?? 36)
+  const [time, setTime] = useState(shot?.timeS ?? num(target?.time) ?? 30)
 
-  const lastTemp = parseInt(localStorage.getItem(TEMP_KEY) ?? '93', 10)
-  const [temp, setTemp] = useState(isNaN(lastTemp) ? 93 : lastTemp)
+  const [temp, setTemp] = useState(() => shot?.tempC ?? lastBrewTemp())
 
-  const [step, setStep] = useState<1 | 2>(1)
+  // From the espresso flow the numbers are settled already (on the pull step, by the scale or by hand), so it
+  // opens on rating the shot. Its Back returns to the pull. The numbers form is only for a log made here.
+  const [step, setStep] = useState<1 | 2>(shot ? 2 : 1)
 
   const [result, setResult] = useState<BrewResult | ''>('')
   const [cup, setCup] = useState<Partial<Record<(typeof CUP_AXES)[number]['key'], number>>>({})
@@ -102,10 +120,10 @@ function Session({ bean }: { bean: CoffeeBean }) {
       ? Math.round((ratio - targetRatio) * 10) / 10
       : null
 
-  async function submit() {
+  async function submit(after: 'bean' | 'another' = 'bean') {
     setSaving(true)
     setError(null)
-    localStorage.setItem(TEMP_KEY, String(temp))
+    saveBrewTemp(temp)
     const input: BrewLogInput = {
       beanId: bean.id,
       method,
@@ -124,7 +142,9 @@ function Session({ bean }: { bean: CoffeeBean }) {
     }
     try {
       await logBrew(input)
-      goBack()
+      // "Another" goes straight to the next espresso, in place of this screen, so back still reaches the bean.
+      if (after === 'another') replace({ name: 'espresso', beanId: bean.id })
+      else goBack()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the brew')
       setSaving(false)
@@ -148,6 +168,7 @@ function Session({ bean }: { bean: CoffeeBean }) {
                 ? `${bean.roaster} · ${bean.id} · ${bean.status}`
                 : 'Optional — skip if you’re in a hurry'}
             </Text>
+
           </Stack>
           <Spacer />
           {step === 1 ? (
@@ -186,6 +207,17 @@ function Session({ bean }: { bean: CoffeeBean }) {
           )}
         </Row>
       </Stack>
+
+      {shot ? (
+        <StepRail
+          current={2}
+          steps={[
+            { label: 'Grind & dose', summary: `${shot.grind.toFixed(1)} · ${shot.doseG.toFixed(1)} g` },
+            { label: 'Pull', summary: `${shot.yieldG.toFixed(1)} g${pullNote(shot)}` },
+            { label: 'Rate' },
+          ]}
+        />
+      ) : null}
 
       {step === 1 ? (
         <>
@@ -339,14 +371,24 @@ function Session({ bean }: { bean: CoffeeBean }) {
 
           {/* Footer */}
           <Row gap="sm" className="shrink-0 border-t border-line pt-3">
-            <Button variant="ghost" onClick={() => setStep(1)} disabled={saving}>
-              Back
+            <Button
+              variant="ghost"
+              // From the espresso flow, back is the pull step, reopened with the shot's numbers kept.
+              onClick={() => (shot ? replace({ name: 'espresso', beanId: bean.id, shot }) : setStep(1))}
+              disabled={saving}
+            >
+              {shot ? 'Back to pull' : 'Back'}
             </Button>
             <Spacer />
-            <Button variant="quiet" onClick={submit} disabled={saving}>
+            <Button variant="quiet" onClick={() => submit()} disabled={saving}>
               Skip
             </Button>
-            <Button variant="primary" onClick={submit} disabled={saving}>
+            {shot ? (
+              <Button variant="secondary" onClick={() => submit('another')} disabled={saving}>
+                Save and make another
+              </Button>
+            ) : null}
+            <Button variant="primary" onClick={() => submit()} disabled={saving}>
               {saving ? 'Saving…' : 'Save brew'}
             </Button>
           </Row>
@@ -411,13 +453,6 @@ function BrewSessionSkeleton() {
       </Row>
     </Stack>
   )
-}
-
-function formatTime(totalSeconds: number): string {
-  if (totalSeconds < 60) return `${totalSeconds}s`
-  const m = Math.floor(totalSeconds / 60)
-  const s = totalSeconds % 60
-  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 /**

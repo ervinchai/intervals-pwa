@@ -1,7 +1,8 @@
-import { ArrowLeft, Plus, Printer, Target, X } from 'lucide-react'
+import { ArrowLeft, Printer, Target, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { useRouter } from '@/app/router'
+import { BrewAction } from '@/components/coffee/BrewAction'
 import { PrintLabelDialog } from '@/components/print'
 import { AsyncScreen } from '@/components/ScreenState'
 import {
@@ -17,7 +18,7 @@ import {
   Text,
 } from '@/components/ui'
 import type { BrewLogEntry, BrewResult, CoffeeBean } from '@/lib/contracts'
-import { fetchCoffeeBean, setTargetBrew } from '@/lib/data'
+import { fetchCoffeeBean, setBeanStatus, setTargetBrew } from '@/lib/data'
 import { beanLabel } from '@/lib/labels'
 import {
   CUP_AXES,
@@ -25,8 +26,10 @@ import {
   formatBrewTime,
   formatClockTime,
   formatShortDate,
+  nextStatusAction,
   parseTarget,
   roastCurve,
+  type BeanStatus,
 } from '@/lib/coffee-utils'
 import { useResource } from '@/lib/useResource'
 
@@ -50,6 +53,9 @@ export function BeanView({ beanId }: { beanId: string }) {
   // bean it patched (`source`) and is used only while that is still the current one.
   const [beanOverride, setBeanOverride] = useState<{ source: CoffeeBean; bean: CoffeeBean } | null>(null)
   const [marking, setMarking] = useState(false)
+  // The bag's status button: busy while the write is out, and the reason when it failed.
+  const [statusBusy, setStatusBusy] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
   // Why the last "Set as target" failed, kept with the brew it was for so it goes away
   // when another brew is opened.
   const [markError, setMarkError] = useState<{ brewId: string; message: string } | null>(null)
@@ -70,6 +76,21 @@ export function BeanView({ beanId }: { beanId: string }) {
     }
   }
 
+  async function handleStatus(status: BeanStatus) {
+    const source = bean.data
+    if (!source) return
+    setStatusBusy(true)
+    setStatusError(null)
+    try {
+      const updated = await setBeanStatus(beanId, status)
+      setBeanOverride({ source, bean: updated })
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Could not change the bag’s status.')
+    } finally {
+      setStatusBusy(false)
+    }
+  }
+
   return (
     <AsyncScreen
       resource={bean}
@@ -80,6 +101,7 @@ export function BeanView({ beanId }: { beanId: string }) {
       {(fetched) => {
         const data = beanOverride && beanOverride.source === fetched ? beanOverride.bean : fetched
         const target = parseTarget(data.targetRecipe)
+        const statusAction = nextStatusAction(data.status)
         // target.dose/.yield carry their unit inline (e.g. "18g in"); strip
         // the trailing word so DetailStat's own number+label pairing doesn't
         // repeat it. target.time is bare seconds (e.g. "28") — format with
@@ -113,6 +135,15 @@ export function BeanView({ beanId }: { beanId: string }) {
                 </Stack>
                 <Spacer />
                 <Button
+                  variant="quiet"
+                  size="sm"
+                  disabled={statusBusy}
+                  onClick={() => handleStatus(statusAction.status)}
+                >
+                  {statusBusy ? 'Updating…' : statusAction.label}
+                </Button>
+                <BrewAction beanId={data.id} brewMethods={data.brewMethods} />
+                <Button
                   variant="ghost"
                   size="icon"
                   aria-label="Print label"
@@ -120,14 +151,12 @@ export function BeanView({ beanId }: { beanId: string }) {
                 >
                   <Printer className="h-5 w-5" />
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => navigate({ name: 'brew', beanId: data.id })}
-                >
-                  <Plus className="mr-1 h-4 w-4" />Add brew log
-                </Button>
               </Row>
+              {statusError ? (
+                <div role="alert">
+                  <Text size="sm" className="text-clay">{statusError}</Text>
+                </div>
+              ) : null}
             </Stack>
 
             <PrintLabelDialog
@@ -163,9 +192,7 @@ export function BeanView({ beanId }: { beanId: string }) {
                   {data.brews.length === 0 ? (
                     <Stack gap="sm" align="start" className="p-[14px]">
                       <Text size="sm" tone="faint">No brews logged yet. Dial one in.</Text>
-                      <Button size="sm" onClick={() => navigate({ name: 'brew', beanId: data.id })}>
-                        Dial in
-                      </Button>
+                      <BrewAction beanId={data.id} brewMethods={data.brewMethods} />
                     </Stack>
                   ) : (
                     <>

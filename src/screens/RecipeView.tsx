@@ -36,7 +36,7 @@ type Tab = 'prep' | 'cook'
  * phase of the cook needs.
  */
 export function RecipeView({ recipeId }: { recipeId: string }) {
-  const { back, canGoBack, navigate } = useRouter()
+  const { back, canGoBack, replace } = useRouter()
   const recipe = useResource(() => fetchRecipe(recipeId), [recipeId])
 
   const [tab, setTab] = useState<Tab>('prep')
@@ -71,7 +71,7 @@ export function RecipeView({ recipeId }: { recipeId: string }) {
               aria-label="Back"
               // Return to wherever this recipe was opened from; fall back to the
               // collection when there is no history (e.g. an HA-pushed recipe).
-              onClick={() => (canGoBack ? back() : navigate({ name: 'collection' }))}
+              onClick={() => (canGoBack ? back() : replace({ name: 'collection' }))}
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>

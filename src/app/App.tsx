@@ -17,6 +17,7 @@ import { BeanView } from '@/screens/BeanView'
 import { Beans } from '@/screens/Beans'
 import { BrewSession } from '@/screens/BrewSession'
 import { Collection } from '@/screens/Collection'
+import { Espresso } from '@/screens/Espresso'
 import { MealPlan } from '@/screens/MealPlan'
 import { NewBean } from '@/screens/NewBean'
 import { Print } from '@/screens/Print'
@@ -104,7 +105,9 @@ function renderScreen(screen: Screen): ReactNode {
     case 'bean':
       return <BeanView beanId={screen.beanId} />
     case 'brew':
-      return <BrewSession beanId={screen.beanId} />
+      return <BrewSession beanId={screen.beanId} shot={screen.shot} />
+    case 'espresso':
+      return <Espresso beanId={screen.beanId} shot={screen.shot} />
     case 'settings':
       return <Settings />
     case 'scan':
@@ -119,6 +122,7 @@ function screenKey(screen: Screen): string {
   if (screen.name === 'recipe') return `recipe:${screen.recipeId}`
   if (screen.name === 'bean') return `bean:${screen.beanId}`
   if (screen.name === 'brew') return `brew:${screen.beanId}`
+  if (screen.name === 'espresso') return `espresso:${screen.beanId}`
   return screen.name
 }
 
@@ -172,7 +176,7 @@ function NavRail({ devBadge }: { devBadge: boolean }) {
         // A bean detail is reached through the catalog (or a scan), so the
         // Coffee tab stays lit while one is open — the detail has no tab.
         variant={
-          screen.name === 'beans' || screen.name === 'bean'
+          screen.name === 'beans' || screen.name === 'bean' || screen.name === 'espresso'
             ? 'secondary'
             : 'ghost'
         }

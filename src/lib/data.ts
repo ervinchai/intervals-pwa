@@ -28,10 +28,12 @@ import {
   mockBeanList,
   mockCreateBean,
   mockLogBrew,
+  mockSetBeanStatus,
   mockSetTargetBrew,
 } from '@/mock/coffee'
 import { MOCK_BRIEFING, MOCK_MEAL_PLAN, MOCK_RECIPES } from '@/mock/data'
 
+import type { BeanStatus } from '@/lib/coffee-utils'
 import { railsRequest } from '@/lib/rails'
 import { readSse } from '@/lib/sse'
 
@@ -208,6 +210,16 @@ export async function setTargetBrew(beanId: string, brewId: string): Promise<Cof
     return railsRequest('PATCH', `/coffee/beans/${encodeURIComponent(beanId)}/target`, CoffeeBeanSchema, { brewId })
   }
   return runScript('intervals/set_target_brew', { beanId, brewId }, CoffeeBeanSchema)
+}
+
+/** Set a bag's status (Sealed, Open or Finished); returns the refreshed bean. */
+export async function setBeanStatus(beanId: string, status: BeanStatus): Promise<CoffeeBean> {
+  if (shouldMock('coffee')) return mock(mockSetBeanStatus(beanId, status))
+  if (coffeeOnRails()) {
+    return railsRequest('PATCH', `/coffee/beans/${encodeURIComponent(beanId)}`, CoffeeBeanSchema, { status })
+  }
+  // There never was a Windmill script for this.
+  throw new Error('Changing a bag’s status needs the Rails API.')
 }
 
 /** Catalog a new bean; returns the created summary (Bean ID assigned by Notion). */
