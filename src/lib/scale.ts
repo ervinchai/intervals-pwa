@@ -56,6 +56,12 @@ export type ScaleState = {
   handTimer: boolean
   /** The finished shot's time in seconds, for the brew log; null until the timer has stopped. */
   shotSeconds: number | null
+  /**
+   * This device's clock minus the readings' clock, in ms (`performance.now()` = reading time + offset), or
+   * null before the first reading. A running timer is shown on this device's clock with it, so it ticks
+   * evenly instead of jumping with each reading's arrival.
+   */
+  clockOffset: number | null
 }
 
 /**
@@ -108,6 +114,7 @@ const EMPTY_STATE: ScaleState = {
   timerMissed: false,
   handTimer: false,
   shotSeconds: null,
+  clockOffset: null,
 }
 
 /** The wait before opening the stream again after it dropped, in milliseconds. */
@@ -124,6 +131,13 @@ export function useScale(): Scale {
   // Everything carried from one reading to the next, kept apart from the state the screen sees (see
   // `Tracking`). A new epoch (a tare on the server, a stream that opened again, or Reset) starts it over.
   const tracking = useRef<Tracking>(START_TRACKING)
+  // The readings' clock against this device's, fitted from each reading's arrival (see `fitClock`).
+  const clock = useRef<ClockFit>(NO_CLOCK)
+  // "Now" on the readings' clock, from this device's clock: exact to the moment, not to the last reading.
+  const scaleNow = useCallback((): number | null => {
+    const { offset } = clock.current
+    return offset === null ? tracking.current.now : performance.now() - offset
+  }, [])
 
   useEffect(() => {
     if (!configured) return
@@ -134,8 +148,9 @@ export function useScale(): Scale {
         tracking.current = { ...START_TRACKING }
       },
       onReading: (reading) => {
+        clock.current = fitClock(clock.current, performance.now() - reading.t)
         tracking.current = track(tracking.current, reading)
-        setState(view(tracking.current))
+        setState(view(tracking.current, clock.current.offset))
         setServerRough(reading.rough)
       },
     })
@@ -168,12 +183,13 @@ export function useScale(): Scale {
   const tareAndStart = useCallback(() => {
     const current = tracking.current
     const { signal } = current
-    if (signal === 'none' && current.now !== null) {
+    const pressed = scaleNow()
+    if (signal === 'none' && pressed !== null) {
       // The timer runs from the press. `keepHand` carries it over the tare's new epoch, which would
       // otherwise start everything over; set before the request, as that epoch can beat the reply.
-      current.hand = { start: current.now, stop: null }
+      current.hand = { start: pressed, stop: null }
       current.keepHand = true
-      setState(view(current))
+      setState(view(current, clock.current.offset))
     }
     void sendTare().then((accepted) => {
       const latest = tracking.current
@@ -183,29 +199,30 @@ export function useScale(): Scale {
         if (!accepted) {
           latest.keepHand = false
           latest.hand = NO_SPAN
-          setState(view(latest))
+          setState(view(latest, clock.current.offset))
         }
       } else if (signal === 'demo' && accepted) {
         command('start')
       }
     })
-  }, [sendTare, command])
+  }, [sendTare, command, scaleNow])
 
   const tapTimer = useCallback(() => {
     const current = tracking.current
-    if (current.signal !== 'none' || current.now === null) return
+    const now = scaleNow()
+    if (current.signal !== 'none' || now === null) return
     const { hand } = current
-    if (hand.start === null) current.hand = { start: current.now, stop: null }
-    else if (hand.stop === null) current.hand = { ...hand, stop: current.now }
+    if (hand.start === null) current.hand = { start: now, stop: null }
+    else if (hand.stop === null) current.hand = { ...hand, stop: Math.max(now, hand.start) }
     else return
-    setState(view(current))
-  }, [])
+    setState(view(current, clock.current.offset))
+  }, [scaleNow])
 
   const reset = useCallback(() => {
     // An unknown epoch makes the next reading start everything over, as a tare does.
     tracking.current = { ...START_TRACKING }
     setTared(false)
-    setState((previous) => ({ ...EMPTY_STATE, pump: previous.pump, handTimer: previous.handTimer, now: previous.now }))
+    setState((previous) => ({ ...EMPTY_STATE, pump: previous.pump, handTimer: previous.handTimer, now: previous.now, clockOffset: previous.clockOffset }))
   }, [])
 
   // The switch follows the readings, which carry the server's setting, so it shows what is true.
@@ -283,8 +300,23 @@ function track(previous: Tracking, reading: ScaleReading): Tracking {
   return { ...current, tracker, pump, flowPhase, hand, flowEnd, phase, signal: reading.pump, now: reading.t }
 }
 
+/**
+ * The offset between this device's clock and the readings' (`performance.now()` minus the reading's `t`),
+ * taken as the smallest arrival offset over the last `CLOCK_WINDOW` readings: the reading that came through
+ * fastest carries the least network delay. A window, not all time, so slow drift between the clocks is
+ * followed.
+ */
+type ClockFit = { offsets: number[]; offset: number | null }
+const NO_CLOCK: ClockFit = { offsets: [], offset: null }
+const CLOCK_WINDOW = 50
+
+function fitClock(previous: ClockFit, arrivalOffset: number): ClockFit {
+  const offsets = [...previous.offsets, arrivalOffset].slice(-CLOCK_WINDOW)
+  return { offsets, offset: Math.min(...offsets) }
+}
+
 /** What the screen sees of the tracking state. */
-function view(current: Tracking): ScaleState {
+function view(current: Tracking, clockOffset: number | null): ScaleState {
   const { samples, weight, shown, flow, flowing, stable } = current.tracker
   const byPump = current.signal !== 'none' && !current.pumpMissed && current.pump.start !== null
   const byHand = current.signal === 'none' && current.hand.start !== null
@@ -305,6 +337,7 @@ function view(current: Tracking): ScaleState {
     timerMissed: current.signal !== 'none' && current.pumpMissed,
     handTimer: current.signal === 'none',
     shotSeconds,
+    clockOffset,
   }
 }
 

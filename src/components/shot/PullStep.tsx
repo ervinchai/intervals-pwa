@@ -191,7 +191,10 @@ export function PullStep({
     return { start, windowMs, points }
   }, [samples, flowEnd, timing, tared])
 
-  const time = shotTime(scale)
+  // A running timer ticks on this device's clock, ten times a second, not with each reading's arrival.
+  const timerRunning = scale.timer.start !== null && scale.timer.stop === null
+  const localNow = useLocalNow(timerRunning)
+  const time = shotTime(scale, localNow)
   // With no pump signal the graph starts and stops the timer, until it has stopped once (Reset clears it).
   const canTapTimer = scale.tared && scale.handTimer && scale.timer.stop === null && scale.connection === 'live'
   const gaugeTone: GaugeTone = message.tone === 'sage' ? 'sage' : message.tone === 'clay' ? 'clay' : 'ember'
@@ -322,14 +325,32 @@ const READY_HINT: Record<PumpSignal, string | undefined> = {
 }
 
 /**
- * The shot time for its readout: how long the pump has run (live) or ran, or the time taken by hand, from the
- * readings' own clock. With the pump's start missed there is no time to show.
+ * `performance.now()`, refreshed ten times a second while `active`, for a timer that ticks evenly. Idle, it
+ * stays put and costs nothing.
  */
-function shotTime(scale: Scale): { value: string; unit: string; note: string } {
+function useLocalNow(active: boolean): number {
+  const [now, setNow] = useState(() => performance.now())
+  useEffect(() => {
+    if (!active) return
+    const tick = () => setNow(performance.now())
+    tick()
+    const id = setInterval(tick, 100)
+    return () => clearInterval(id)
+  }, [active])
+  return now
+}
+
+/**
+ * The shot time for its readout: how long the pump has run (live) or ran, or the time taken by hand. Start and
+ * stop are on the readings' clock; a running time is read against this device's clock (`localNow` mapped
+ * back by `clockOffset`), so it ticks evenly. With the pump's start missed there is no time to show.
+ */
+function shotTime(scale: Scale, localNow: number): { value: string; unit: string; note: string } {
   const { timer } = scale
   if (scale.timerMissed) return { value: '—', unit: '', note: 'Missed the start' }
   if (timer.start === null) return { value: '0.0', unit: 's', note: scale.handTimer ? 'By hand' : 'Starts with the pump' }
-  const end = timer.stop ?? scale.now ?? timer.start
+  const live = scale.clockOffset === null ? (scale.now ?? timer.start) : localNow - scale.clockOffset
+  const end = timer.stop ?? live
   const seconds = Math.max(end - timer.start, 0) / 1000
   const running = timer.stop === null
   const note = timer.by === 'hand' ? (running ? 'Timing by hand' : 'Timed by hand') : running ? 'Pump on' : 'Pump ran'
