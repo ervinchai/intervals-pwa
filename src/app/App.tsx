@@ -5,6 +5,7 @@ import {
   Coffee,
   Printer,
   QrCode,
+  Wallet,
   Settings as SettingsIcon,
   Sunrise,
 } from 'lucide-react'
@@ -18,6 +19,7 @@ import { Beans } from '@/screens/Beans'
 import { BrewSession } from '@/screens/BrewSession'
 import { Collection } from '@/screens/Collection'
 import { Espresso } from '@/screens/Espresso'
+import { Finance } from '@/screens/Finance'
 import { ShotView } from '@/screens/ShotView'
 import { MealPlan } from '@/screens/MealPlan'
 import { NewBean } from '@/screens/NewBean'
@@ -111,6 +113,8 @@ function renderScreen(screen: Screen): ReactNode {
       return <Espresso beanId={screen.beanId} shot={screen.shot} />
     case 'shot':
       return <ShotView beanId={screen.beanId} brewId={screen.brewId} />
+    case 'finance':
+      return <Finance />
     case 'settings':
       return <Settings />
     case 'scan':
@@ -188,6 +192,15 @@ function NavRail({ devBadge }: { devBadge: boolean }) {
         onClick={() => navigate({ name: 'beans' })}
       >
         <Coffee className="h-6 w-6" />
+      </Button>
+
+      <Button
+        size="icon"
+        variant={screen.name === 'finance' ? 'secondary' : 'ghost'}
+        aria-label="Finance"
+        onClick={() => navigate({ name: 'finance' })}
+      >
+        <Wallet className="h-6 w-6" />
       </Button>
 
       <Button

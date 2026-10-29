@@ -51,6 +51,7 @@ export type Screen =
   | { name: 'espresso'; beanId: string; shot?: ShotResult }
   /** The overview of a logged espresso brew: its numbers, taste, flow and an AI reading. */
   | { name: 'shot'; beanId: string; brewId: string }
+  | { name: 'finance' }
   | { name: 'settings' }
   | { name: 'scan' }
   | { name: 'print' }
@@ -117,6 +118,8 @@ function screenFromParts(name: string, param: string): Screen | null {
       const [beanId, brewId] = param.split('/')
       return beanId && brewId ? { name: 'shot', beanId, brewId } : null
     }
+    case 'finance':
+      return { name: 'finance' }
     case 'settings':
       return { name: 'settings' }
     case 'scan':

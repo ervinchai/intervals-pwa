@@ -48,8 +48,15 @@ stay out of the shipped assets). Copy `public/config.example.json` to
 | `haBaseUrl`         | Home Assistant URL                                   |
 | `haToken`           | HA long-lived token for the WebSocket client         |
 | `useMockData`       | Read from `src/mock` instead of calling Windmill     |
-| `mockOverrides`     | Per-endpoint override of `useMockData`               |
+| `mockOverrides`     | Per-endpoint override of `useMockData` (keys: `today`, `recipes`, `mealPlan`, `finance`) |
 
 For the Cloudflare Pages build, `scripts/gen-config.mjs` writes `config.json`
 from `WINDMILL_*` / `RAILS_BASE_URL` / `HA_*` environment variables at build time
 (`npm run build:pages`).
+
+## Finance
+
+The Finance screen (wallet icon) reads the Rails `/finance` API. It has four tabs:
+Forecast (with what-if scenarios), Commitments, Budgets and Statements (PDF upload,
+review and confirm). Set `railsBaseUrl` to use it. With `mockOverrides.finance: true`
+it shows sample data from `src/mock/finance.ts` instead.

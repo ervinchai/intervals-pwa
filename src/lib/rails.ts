@@ -40,6 +40,26 @@ function messageFor(status: number, code: string, fields: unknown): string {
       return 'The server has no AI model set up (GEMINI_API_KEY).'
     case 'analysis_failed':
       return 'The AI could not read this shot. Try again.'
+    case 'not_found':
+      return 'That record is not on the server.'
+    case 'file_missing':
+      return 'Choose a PDF first.'
+    case 'file_too_large':
+      return 'That file is too large (15 MB at most).'
+    case 'not_a_pdf':
+      return 'That file is not a PDF.'
+    case 'password_required':
+      return 'This PDF is protected. Enter its password.'
+    case 'wrong_password':
+      return 'That password did not open the PDF.'
+    case 'unreadable_pdf':
+      return 'The PDF could not be read.'
+    case 'no_text':
+      return 'The PDF has no text to read (a scan?).'
+    case 'not_in_review':
+      return 'That statement is not waiting for review.'
+    case 'not_failed':
+      return 'That statement did not fail.'
     default:
       return `The server answered ${status}. Try again.`
   }
@@ -70,6 +90,23 @@ export async function railsRequest<T>(
   schema: ZodType<T>,
   body?: unknown,
 ): Promise<T> {
+  return send(method, path, schema, body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+
+/**
+ * Upload a file (multipart) to the Rails API and check the reply against its contract. The
+ * browser sets the multipart boundary, so no Content-Type is given.
+ */
+export async function railsUpload<T>(path: string, schema: ZodType<T>, form: FormData): Promise<T> {
+  return send('POST', path, schema, { body: form })
+}
+
+async function send<T>(
+  method: string,
+  path: string,
+  schema: ZodType<T>,
+  init: { headers?: Record<string, string>; body?: BodyInit },
+): Promise<T> {
   const { railsBaseUrl } = getConfig()
   if (!railsBaseUrl) {
     throw new RailsError('The server address is not set.', 0, 'not_configured')
@@ -77,11 +114,7 @@ export async function railsRequest<T>(
 
   let res: Response
   try {
-    res = await fetch(`${railsBaseUrl}${path}`, {
-      method,
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
+    res = await fetch(`${railsBaseUrl}${path}`, { method, ...init })
   } catch (err) {
     console.error(`[intervals] ${method} ${path} could not reach the server`, err)
     throw new RailsError('Could not reach the server. Check the connection and try again.', 0, 'network')
