@@ -9,5 +9,5 @@
   "vapidPublicKey": "",
   "idleTimeoutMinutes": 5,
   "useMockData": true,
-  "mockOverrides": { "today": true, "recipes": false, "mealPlan": true }
+  "mockOverrides": { "today": true, "recipes": false, "mealPlan": true, "finance": false }
 }

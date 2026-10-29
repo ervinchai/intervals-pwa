@@ -402,6 +402,172 @@ export type CalendarEvent = z.infer<typeof CalendarEventSchema>
 export type Task = z.infer<typeof TaskSchema>
 export type Briefing = z.infer<typeof BriefingSchema>
 export type BrewResult = z.infer<typeof BrewResultSchema>
+/* ---------------------------------------------------------------------------
+   Finance (Rails API, /finance/*). Money is whole cents under `*Cents`; Rails leaves an empty
+   field out instead of sending null, so optional fields are `.optional()`.
+--------------------------------------------------------------------------- */
+
+const CentsSchema = z.number().int()
+
+export const FinanceForecastMonthSchema = z.object({
+  /** "2026-11". */
+  month: z.string(),
+  openingCents: CentsSchema,
+  incomeCents: CentsSchema,
+  /** Recurring payments (rent, instalments, subscriptions). */
+  fixedCents: CentsSchema,
+  /** Budgeted purchases and what-if one-offs, bought in full on their date. */
+  purchasesCents: CentsSchema,
+  spendingCents: CentsSchema,
+  lowestCents: CentsSchema,
+  lowestOn: z.string().optional(),
+  closingCents: CentsSchema,
+  /** Money put aside for budgets; it stays in the account. */
+  earmarkedCents: CentsSchema,
+  /** The closing balance less what is earmarked. */
+  freeCents: CentsSchema,
+})
+
+export const FinanceForecastSchema = z.object({
+  asOf: z.string(),
+  currency: z.string(),
+  pay: z.enum(['expected', 'earliest']),
+  startingBalanceCents: CentsSchema,
+  startingBalanceKnown: z.boolean(),
+  accountsWithoutBalance: z.array(z.string()).default([]),
+  months: z.array(FinanceForecastMonthSchema),
+  lowestCents: CentsSchema,
+  lowestOn: z.string(),
+  firstNegativeOn: z.string().optional(),
+  endingCents: CentsSchema,
+  endingFreeCents: CentsSchema,
+  spendingEstimate: z
+    .object({
+      monthlyCents: CentsSchema,
+      basedOnMonths: z.number().int(),
+      byCategory: z.array(z.object({ category: z.string(), cents: CentsSchema })),
+    })
+    .optional(),
+  notes: z.array(z.string()).default([]),
+  /** Only on a what-if (`POST /finance/forecast`): the change against the plain forecast. */
+  comparison: z
+    .object({
+      baselineEndingCents: CentsSchema,
+      endingChangeCents: CentsSchema,
+      baselineLowestCents: CentsSchema,
+      lowestChangeCents: CentsSchema,
+      baselineFirstNegativeOn: z.string().optional(),
+    })
+    .optional(),
+})
+
+export const FinanceRecurringPaymentSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  amountCents: CentsSchema,
+  currency: z.string(),
+  accountId: z.number().int().optional(),
+  accountName: z.string().optional(),
+  category: z.string().optional(),
+  intervalUnit: z.enum(['week', 'month', 'year']),
+  intervalCount: z.number().int(),
+  anchorDate: z.string().optional(),
+  startsOn: z.string().optional(),
+  endsOn: z.string().optional(),
+  status: z.enum(['active', 'trial', 'paused', 'cancelled']),
+  monthlyCostCents: CentsSchema,
+  nextDue: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+export const FinanceRecurringCollectionSchema = z.object({
+  recurringPayments: z.array(FinanceRecurringPaymentSchema),
+})
+
+export const FinanceOverviewSchema = z.object({
+  asOf: z.string(),
+  monthlyTotals: z.array(z.object({ currency: z.string(), monthlyCostCents: CentsSchema })),
+  byCategory: z.array(z.object({ category: z.string(), currency: z.string(), monthlyCostCents: CentsSchema })),
+  upcoming: z.array(
+    z.object({
+      id: z.number().int(),
+      name: z.string(),
+      dueOn: z.string(),
+      amountCents: CentsSchema,
+      currency: z.string(),
+      accountName: z.string().optional(),
+    }),
+  ),
+  ending: z.array(FinanceRecurringPaymentSchema),
+})
+
+export const FinanceBudgetSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  targetCents: CentsSchema,
+  currency: z.string(),
+  targetDate: z.string().optional(),
+  priority: z.number().int(),
+  status: z.enum(['planning', 'saving', 'bought', 'dropped']),
+  plannedMonthlyCents: CentsSchema.optional(),
+  savedCents: CentsSchema,
+  remainingCents: CentsSchema,
+  progressPercent: z.number(),
+  monthsLeft: z.number().int().optional(),
+  neededMonthlyCents: CentsSchema.optional(),
+  notes: z.string().optional(),
+})
+
+export const FinanceBudgetCollectionSchema = z.object({ budgets: z.array(FinanceBudgetSchema) })
+
+export const FinanceAccountSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  kind: z.string(),
+  institution: z.string().optional(),
+  status: z.string(),
+  currency: z.string(),
+})
+
+export const FinanceAccountCollectionSchema = z.object({ accounts: z.array(FinanceAccountSchema) })
+
+export const FinanceTransactionSchema = z.object({
+  id: z.number().int(),
+  postedOn: z.string(),
+  amountCents: CentsSchema,
+  currency: z.string(),
+  description: z.string(),
+  merchant: z.string().optional(),
+  kind: z.string(),
+  category: z.string().optional(),
+})
+
+export const FinanceStatementSchema = z.object({
+  id: z.number().int(),
+  accountId: z.number().int(),
+  accountName: z.string(),
+  status: z.enum(['uploaded', 'extracting', 'review', 'confirmed', 'failed']),
+  /** Why a failed statement failed: a short code such as `no_transactions` or `unavailable`. */
+  error: z.string().optional(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  currency: z.string(),
+  openingBalanceCents: CentsSchema.optional(),
+  closingBalanceCents: CentsSchema.optional(),
+  /** Opening balance plus the lines equals the closing balance. Absent when a balance is not printed. */
+  reconciled: z.boolean().optional(),
+  reconcileDifferenceCents: CentsSchema.optional(),
+  skippedDuplicates: z.number().int().default(0),
+  fileName: z.string().optional(),
+  transactionCount: z.number().int().default(0),
+  notes: z.string().optional(),
+  createdAt: z.string(),
+  /** Only on a single statement. */
+  transactions: z.array(FinanceTransactionSchema).optional(),
+})
+
+export const FinanceStatementCollectionSchema = z.object({ statements: z.array(FinanceStatementSchema) })
+
 export type BrewLogEntry = z.infer<typeof BrewLogEntrySchema>
 export type CoffeeBeanSummary = z.infer<typeof CoffeeBeanSummarySchema>
 export type CoffeeBean = z.infer<typeof CoffeeBeanSchema>
@@ -418,3 +584,11 @@ export type ShotAnalysisItem = z.infer<typeof ShotAnalysisItemSchema>
 export type SavedAnalysis = z.infer<typeof SavedAnalysisSchema>
 /** A finished reading of a shot, as the overview holds it and sends it with the brew when it is logged. */
 export type AnalysisSnapshot = { items: ShotAnalysisItem[]; taste?: BrewResult; thoughtS?: number }
+export type FinanceForecast = z.infer<typeof FinanceForecastSchema>
+export type FinanceForecastMonth = z.infer<typeof FinanceForecastMonthSchema>
+export type FinanceRecurringPayment = z.infer<typeof FinanceRecurringPaymentSchema>
+export type FinanceOverview = z.infer<typeof FinanceOverviewSchema>
+export type FinanceBudget = z.infer<typeof FinanceBudgetSchema>
+export type FinanceAccount = z.infer<typeof FinanceAccountSchema>
+export type FinanceTransaction = z.infer<typeof FinanceTransactionSchema>
+export type FinanceStatement = z.infer<typeof FinanceStatementSchema>

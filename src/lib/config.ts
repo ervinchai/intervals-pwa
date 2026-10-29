@@ -44,6 +44,7 @@ export const ConfigSchema = z.object({
       recipes: z.boolean().optional(),
       mealPlan: z.boolean().optional(),
       coffee: z.boolean().optional(),
+      finance: z.boolean().optional(),
     })
     .default({}),
 })

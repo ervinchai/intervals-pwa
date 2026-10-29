@@ -1,6 +1,19 @@
 import { getConfig, type MockEndpoint } from '@/lib/config'
 import {
   BriefingSchema,
+  FinanceAccountCollectionSchema,
+  FinanceBudgetCollectionSchema,
+  FinanceForecastSchema,
+  FinanceOverviewSchema,
+  FinanceRecurringCollectionSchema,
+  FinanceStatementCollectionSchema,
+  FinanceStatementSchema,
+  type FinanceAccount,
+  type FinanceBudget,
+  type FinanceForecast,
+  type FinanceOverview,
+  type FinanceRecurringPayment,
+  type FinanceStatement,
   BrewLogEntrySchema,
   CoffeeBeanSchema,
   CoffeeBeanSummarySchema,
@@ -41,10 +54,20 @@ import {
   mockSetTargetBrew,
   mockShotAnalysisItems,
 } from '@/mock/coffee'
+import {
+  mockFinanceAccounts,
+  mockFinanceBudgets,
+  mockFinanceConfirm,
+  mockFinanceForecast,
+  mockFinanceOverview,
+  mockFinanceRecurring,
+  mockFinanceStatements,
+  mockFinanceUpload,
+} from '@/mock/finance'
 import { MOCK_BRIEFING, MOCK_MEAL_PLAN, MOCK_RECIPES } from '@/mock/data'
 
 import type { BeanStatus } from '@/lib/coffee-utils'
-import { errorFrom, RailsError, railsRequest } from '@/lib/rails'
+import { errorFrom, RailsError, railsRequest, railsUpload } from '@/lib/rails'
 import { readSse } from '@/lib/sse'
 
 import type { ZodType } from 'zod'
@@ -396,4 +419,91 @@ export async function printLabel(
 
   // The stream closed with no terminal event: the connection dropped.
   return { ok: false, reason: 'connection_lost' }
+}
+
+/* ---------------------------------------------------------------------------
+   Finance (Rails API, /finance/*).
+--------------------------------------------------------------------------- */
+
+/**
+ * The cash month by month. With `cancelPaymentIds` it is a what-if: the server runs the forecast without
+ * those payments, saves nothing, and the reply carries a `comparison` with the plain forecast.
+ */
+export async function fetchFinanceForecast(options: {
+  months: number
+  pay: 'expected' | 'earliest'
+  cancelPaymentIds?: number[]
+}): Promise<FinanceForecast> {
+  const { months, pay, cancelPaymentIds = [] } = options
+  if (shouldMock('finance')) return mock(mockFinanceForecast(months, pay, cancelPaymentIds))
+  if (cancelPaymentIds.length > 0) {
+    return railsRequest('POST', '/finance/forecast', FinanceForecastSchema, { months, pay, scenario: { cancelPaymentIds } })
+  }
+  return railsRequest('GET', `/finance/forecast?months=${months}&pay=${pay}`, FinanceForecastSchema)
+}
+
+/** Monthly cost of the live recurring payments, by category, with what is due soon and what ends soon. */
+export async function fetchFinanceOverview(): Promise<FinanceOverview> {
+  if (shouldMock('finance')) return mock(mockFinanceOverview())
+  return railsRequest('GET', '/finance/overview', FinanceOverviewSchema)
+}
+
+export async function fetchFinanceRecurring(): Promise<FinanceRecurringPayment[]> {
+  if (shouldMock('finance')) return mock(mockFinanceRecurring())
+  const { recurringPayments } = await railsRequest('GET', '/finance/recurring_payments', FinanceRecurringCollectionSchema)
+  return recurringPayments
+}
+
+export async function fetchFinanceBudgets(): Promise<FinanceBudget[]> {
+  if (shouldMock('finance')) return mock(mockFinanceBudgets())
+  const { budgets } = await railsRequest('GET', '/finance/budgets', FinanceBudgetCollectionSchema)
+  return budgets
+}
+
+export async function fetchFinanceAccounts(): Promise<FinanceAccount[]> {
+  if (shouldMock('finance')) return mock(mockFinanceAccounts())
+  const { accounts } = await railsRequest('GET', '/finance/accounts', FinanceAccountCollectionSchema)
+  return accounts
+}
+
+export async function fetchFinanceStatements(): Promise<FinanceStatement[]> {
+  if (shouldMock('finance')) return mock([...mockFinanceStatements()])
+  const { statements } = await railsRequest('GET', '/finance/statements', FinanceStatementCollectionSchema)
+  return statements
+}
+
+/** One statement with its transactions. */
+export async function fetchFinanceStatement(id: number): Promise<FinanceStatement> {
+  if (shouldMock('finance')) {
+    const found = mockFinanceStatements().find((s) => s.id === id)
+    if (!found) throw new RailsError('That record is not on the server.', 404, 'not_found')
+    return mock(found)
+  }
+  return railsRequest('GET', `/finance/statements/${id}`, FinanceStatementSchema)
+}
+
+/**
+ * Upload a statement PDF. The server answers at once with the statement (`uploaded`) and reads it in the
+ * background: poll `fetchFinanceStatement` until it is `review` or `failed`. The password, if any, is used
+ * once by the server and never kept.
+ */
+export async function uploadFinanceStatement(accountId: number, file: File, password: string): Promise<FinanceStatement> {
+  if (shouldMock('finance')) return mock(mockFinanceUpload(accountId, file.name))
+  const form = new FormData()
+  form.append('accountId', String(accountId))
+  form.append('file', file)
+  if (password) form.append('password', password)
+  return railsUpload('/finance/statements', FinanceStatementSchema, form)
+}
+
+/** Accept a reviewed statement: its lines now count, and its closing balance is the account's latest balance. */
+export async function confirmFinanceStatement(id: number): Promise<FinanceStatement> {
+  if (shouldMock('finance')) return mock(mockFinanceConfirm(id))
+  return railsRequest('POST', `/finance/statements/${id}/confirm`, FinanceStatementSchema, {})
+}
+
+/** Read a failed statement again. */
+export async function retryFinanceStatement(id: number): Promise<FinanceStatement> {
+  if (shouldMock('finance')) return mock(mockFinanceStatements().find((s) => s.id === id) as FinanceStatement)
+  return railsRequest('POST', `/finance/statements/${id}/retry`, FinanceStatementSchema, {})
 }
