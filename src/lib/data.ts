@@ -51,10 +51,11 @@ import type { ZodType } from 'zod'
 
 /**
  * The single seam between screens and the backend. Screens call these and never
- * know whether the bytes came from Windmill or from a fixture, so wiring up real
+ * know whether the bytes came from the backend or from a fixture, so wiring up real
  * endpoints is a config flip rather than a screen rewrite.
  *
- * Each endpoint maps to one Windmill script, run synchronously via the
+ * Coffee and printing call the Rails API (`railsRequest`). The rest still maps to
+ * one Windmill script each, run synchronously via the
  * `run_wait_result` API, which returns the script's return value directly. The
  * script paths live under the `intervals/` folder of the Windmill workspace and
  * are kept in sync from the intervals-backend repo (wmill git-sync).
@@ -159,15 +160,6 @@ export async function fetchBriefing(): Promise<Briefing> {
   return runScript('intervals/today', {}, BriefingSchema)
 }
 
-/**
- * Coffee goes to the Rails API whenever `railsBaseUrl` is set, and to the Windmill scripts
- * otherwise. The Windmill path is the fallback while the Rails one is being proven; it goes
- * when the Windmill coffee scripts are retired.
- */
-function coffeeOnRails(): boolean {
-  return Boolean(getConfig().railsBaseUrl)
-}
-
 /** The coffee-bean catalog for the grid — summaries only. */
 export async function fetchCoffeeCollection(): Promise<CoffeeCollection> {
   if (shouldMock('coffee')) {
@@ -185,8 +177,7 @@ export async function fetchCoffeeCollection(): Promise<CoffeeCollection> {
     )
     return mock({ beans })
   }
-  if (coffeeOnRails()) return railsRequest('GET', '/coffee/beans', CoffeeCollectionSchema)
-  return runScript('intervals/beans', {}, CoffeeCollectionSchema)
+  return railsRequest('GET', '/coffee/beans', CoffeeCollectionSchema)
 }
 
 /** One bean plus its brew-log history, addressed by its Bean ID / QR code. */
@@ -196,21 +187,15 @@ export async function fetchCoffeeBean(id: string): Promise<CoffeeBean> {
     if (!bean) throw new Error(`No mock bean "${id}"`)
     return mock(bean)
   }
-  if (coffeeOnRails()) {
-    return railsRequest('GET', `/coffee/beans/${encodeURIComponent(id)}`, CoffeeBeanSchema)
-  }
-  return runScript('intervals/bean', { id }, CoffeeBeanSchema)
+  return railsRequest('GET', `/coffee/beans/${encodeURIComponent(id)}`, CoffeeBeanSchema)
 }
 
 /** Append a calibration entry to a bean's brew log. */
 export async function logBrew(input: BrewLogInput): Promise<BrewLogEntry> {
   if (shouldMock('coffee')) return mock(mockLogBrew(input))
-  if (coffeeOnRails()) {
-    // The bean is in the path, so it is not repeated in the body.
-    const { beanId, ...fields } = input
-    return railsRequest('POST', `/coffee/beans/${encodeURIComponent(beanId)}/brews`, BrewLogEntrySchema, fields)
-  }
-  return runScript('intervals/brew_create', { ...input }, BrewLogEntrySchema)
+  // The bean is in the path, so it is not repeated in the body.
+  const { beanId, ...fields } = input
+  return railsRequest('POST', `/coffee/beans/${encodeURIComponent(beanId)}/brews`, BrewLogEntrySchema, fields)
 }
 
 /**
@@ -218,7 +203,7 @@ export async function logBrew(input: BrewLogInput): Promise<BrewLogEntry> {
  * hand, or before shots were kept). Rails only; mock mode has none.
  */
 export async function fetchShotRecord(beanId: string, brewId: string): Promise<ShotRecord | null> {
-  if (shouldMock('coffee') || !coffeeOnRails()) return null
+  if (shouldMock('coffee')) return null
   try {
     return await railsRequest('GET', `/coffee/beans/${encodeURIComponent(beanId)}/brews/${encodeURIComponent(brewId)}/shot`, ShotRecordSchema)
   } catch (err) {
@@ -232,7 +217,7 @@ export async function fetchShotRecord(beanId: string, brewId: string): Promise<S
  * A new reading replaces it (see `analyseShot` with a `brewId`).
  */
 export async function fetchSavedAnalysis(beanId: string, brewId: string): Promise<SavedAnalysis | null> {
-  if (shouldMock('coffee') || !coffeeOnRails()) return null
+  if (shouldMock('coffee')) return null
   try {
     return await railsRequest(
       'GET',
@@ -331,27 +316,19 @@ export async function analyseShot(beanId: string, input: ShotAnalysisInput, hand
 /** Mark a brew as a bean's target (dialed-in) recipe; returns the updated bean. */
 export async function setTargetBrew(beanId: string, brewId: string): Promise<CoffeeBean> {
   if (shouldMock('coffee')) return mock(mockSetTargetBrew(beanId, brewId))
-  if (coffeeOnRails()) {
-    return railsRequest('PATCH', `/coffee/beans/${encodeURIComponent(beanId)}/target`, CoffeeBeanSchema, { brewId })
-  }
-  return runScript('intervals/set_target_brew', { beanId, brewId }, CoffeeBeanSchema)
+  return railsRequest('PATCH', `/coffee/beans/${encodeURIComponent(beanId)}/target`, CoffeeBeanSchema, { brewId })
 }
 
 /** Set a bag's status (Sealed, Open or Finished); returns the refreshed bean. */
 export async function setBeanStatus(beanId: string, status: BeanStatus): Promise<CoffeeBean> {
   if (shouldMock('coffee')) return mock(mockSetBeanStatus(beanId, status))
-  if (coffeeOnRails()) {
-    return railsRequest('PATCH', `/coffee/beans/${encodeURIComponent(beanId)}`, CoffeeBeanSchema, { status })
-  }
-  // There never was a Windmill script for this.
-  throw new Error('Changing a bag’s status needs the Rails API.')
+  return railsRequest('PATCH', `/coffee/beans/${encodeURIComponent(beanId)}`, CoffeeBeanSchema, { status })
 }
 
-/** Catalog a new bean; returns the created summary (Bean ID assigned by Notion). */
+/** Catalog a new bean; returns the created summary, with the Bean ID the server assigned. */
 export async function createBean(input: BeanCreateInput): Promise<CoffeeBeanSummary> {
   if (shouldMock('coffee')) return mock(mockCreateBean(input))
-  if (coffeeOnRails()) return railsRequest('POST', '/coffee/beans', CoffeeBeanSummarySchema, input)
-  return runScript('intervals/bean_create', { ...input }, CoffeeBeanSummarySchema)
+  return railsRequest('POST', '/coffee/beans', CoffeeBeanSummarySchema, input)
 }
 
 /** How a print ended. A failure carries a neutral reason the UI turns into copy. */

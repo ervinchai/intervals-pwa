@@ -116,19 +116,18 @@ export const BriefingSchema = z.object({
 })
 
 /**
- * Coffee — a bean catalog backed by a Notion database, plus a per-bean brew
- * calibration log. The backend flattens Notion's property model into these
- * shapes; the hub never sees Notion's rich-property JSON.
+ * Coffee — a bean catalog plus a per-bean brew calibration log, kept by the
+ * Rails API in Postgres.
  */
 
-/** Roast/brew vocabularies. Kept as plain strings — the Notion DB owns the
- *  authoritative option list, so a new option there never breaks the contract. */
+/** Roast/brew vocabularies. Kept as plain strings, so a new option on the server
+ *  never breaks the contract. */
 export const BrewResultSchema = z.enum(['Sour / Under', 'Balanced', 'Bitter / Over'])
 
 /** One dial-in entry against a bean. */
 export const BrewLogEntrySchema = z.object({
   id: z.string(),
-  /** ISO-8601 timestamp (Notion page `created_time`); the hub formats it for display. */
+  /** ISO-8601 timestamp of when the brew was logged; the hub formats it for display. */
   createdAt: z.string(),
   method: z.string(),
   /** Grinder setting, free-form (clicks, numbers). */
@@ -137,7 +136,7 @@ export const BrewLogEntrySchema = z.object({
   yieldG: z.number().optional(),
   timeS: z.number().optional(),
   waterTempC: z.number().optional(),
-  /** Yield ÷ dose, computed by Notion; shown as e.g. 2.1 for a 1:2.1 ratio. */
+  /** Yield ÷ dose, computed by the server; shown as e.g. 2.1 for a 1:2.1 ratio. */
   ratio: z.number().optional(),
   result: BrewResultSchema.optional(),
   /**
@@ -152,13 +151,13 @@ export const BrewLogEntrySchema = z.object({
   /** What to change on the next brew. */
   adjustment: z.string().optional(),
   notes: z.string().optional(),
-  /** True when this brew is the bean's target recipe (Notion "Referenced by" set). */
+  /** True when this brew is the bean's target recipe . */
   isTarget: z.boolean().default(false),
 })
 
 /** Lightweight bean entry for the catalog grid. */
 export const CoffeeBeanSummarySchema = z.object({
-  /** The Notion "Bean ID" (e.g. "BN-12"); also the QR identity. */
+  /** The Bean ID (e.g. "BN-12"); also the QR identity. */
   id: z.string(),
   name: z.string(),
   roaster: z.string().optional(),
@@ -207,7 +206,7 @@ export const BrewLogInputSchema = z.object({
   aftertaste: z.number().min(1).max(5).optional(),
   adjustment: z.string().optional(),
   notes: z.string().optional(),
-  /** The AI's reading of the shot, made before it was logged: the server keeps it beside the brew (one per brew), not in Notion. */
+  /** The AI's reading of the shot, made before it was logged: the server keeps it beside the brew (one per brew). */
   analysis: z
     .object({
       items: z.array(z.record(z.string(), z.unknown())),
@@ -215,7 +214,7 @@ export const BrewLogInputSchema = z.object({
       thoughtS: z.number().optional(),
     })
     .optional(),
-  /** The shot as the scale read it (see `ShotRecord` in flow.ts): the server keeps it beside the brew, not in Notion. */
+  /** The shot as the scale read it (see `ShotRecord` in flow.ts): the server keeps it beside the brew. */
   shot: z
     .object({
       summary: z.record(z.string(), z.union([z.number(), z.string(), z.null()])),
@@ -226,7 +225,7 @@ export const BrewLogInputSchema = z.object({
 
 /**
  * What the "New bean" form sends to catalog a bag. The backend assigns the Bean
- * ID (Notion auto-increment) and formats the date labels, so neither is sent.
+ * ID (the next number), so it is not sent.
  * `roastDate`/`purchaseDate` are plain ISO calendar dates (yyyy-mm-dd).
  */
 export const BeanCreateInputSchema = z.object({

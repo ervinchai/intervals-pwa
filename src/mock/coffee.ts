@@ -10,7 +10,7 @@ import type {
 /**
  * Coffee fixtures. A small in-memory store rather than a frozen constant, so the
  * "Log a shot" form actually adds a row while running on mock data — the screen
- * behaves end-to-end before the Windmill/Notion scripts exist. Resets on reload,
+ * behaves end-to-end without the Rails API. Resets on reload,
  * which is fine for development.
  *
  * Shapes match the contracts exactly, so flipping `mockOverrides.coffee` off is

@@ -111,7 +111,7 @@ export const CUP_AXES = [
   { key: 'aftertaste', label: 'Aftertaste', low: 'Short', high: 'Lingering' },
 ] as const
 
-/** The statuses of a bag, as the Beans database in Notion has them. */
+/** The statuses of a bag, as the API accepts them. */
 export const BEAN_STATUSES = ['Sealed', 'Open', 'Finished'] as const
 export type BeanStatus = (typeof BEAN_STATUSES)[number]
 
@@ -187,7 +187,7 @@ export function startingGrind(
 export type BrewKind = 'espresso' | 'filter' | 'both'
 
 /**
- * How a bean is brewed, from its roast profile (the "Brew Methods" of the bean in Notion: Espresso,
+ * How a bean is brewed, from its roast profile (the bean's `brewMethods`: Espresso,
  * Filter, Omniroast). Omniroast means either, and so does a bean tagged both, or tagged with neither
  * (or nothing at all), because then there is nothing to say which it is.
  */

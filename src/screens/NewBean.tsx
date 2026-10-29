@@ -19,9 +19,9 @@ const ROAST_LEVELS = ['Light', 'Medium-Light', 'Medium', 'Medium-Dark', 'Dark'] 
 const ROAST_PROFILES = ['Espresso', 'Filter', 'Omniroast'] as const
 
 /**
- * The "New bean" form — catalog a bag. Notion assigns the Bean ID and formats
- * the date labels, so the form sends only what you type. On save it opens the
- * new bean's detail screen, where its QR label can be printed.
+ * The "New bean" form — catalog a bag. The server assigns the Bean ID, so the
+ * form sends only what you type. On save it opens the new bean's detail screen,
+ * where its QR label can be printed.
  *
  * No photo: bags are identified by their printed QR, not a picture.
  */

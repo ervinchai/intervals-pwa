@@ -5,7 +5,7 @@ import { getConfig } from '@/lib/config'
 /**
  * A call to the Rails API that failed. `message` is written for the person looking at the
  * screen (the error states and forms print it as is); `status` and `code` are for code.
- * `code` is the API's `error` value (`rate_limited`, `bean_not_found`, …), or one of
+ * `code` is the API's `error` value (`bean_not_found`, `invalid_request`, …), or one of
  * `not_configured`, `network`, `contract` and `http` for failures before or after the API spoke.
  * `retryAfter` is the seconds the API asked us to wait, when it did.
  */
@@ -25,17 +25,9 @@ export class RailsError extends Error {
 
 type ErrorBody = { error?: unknown; retryAfter?: unknown; fields?: unknown }
 
-function busyMessage(retryAfter: number | undefined): string {
-  if (retryAfter === undefined) return 'Notion is busy. Try again in a moment.'
-  return `Notion is busy. Try again in ${retryAfter} ${retryAfter === 1 ? 'second' : 'seconds'}.`
-}
-
-/** The words shown for an API error. The API never sends Notion's own text. */
-function messageFor(status: number, code: string, retryAfter: number | undefined, fields: unknown): string {
+/** The words shown for an API error. */
+function messageFor(status: number, code: string, fields: unknown): string {
   switch (code) {
-    case 'rate_limited':
-    case 'notion_overloaded':
-      return busyMessage(retryAfter)
     case 'bean_not_found':
       return 'That bean is not in the catalog.'
     case 'brew_not_found':
@@ -44,10 +36,6 @@ function messageFor(status: number, code: string, retryAfter: number | undefined
       const names = fields && typeof fields === 'object' ? Object.keys(fields) : []
       return names.length ? `Some details were not accepted: ${names.join(', ')}.` : 'Some details were not accepted.'
     }
-    case 'notion_unavailable':
-      return 'Notion could not be reached. Try again.'
-    case 'notion_not_configured':
-      return 'The server is not connected to Notion yet.'
     case 'llm_not_configured':
       return 'The server has no AI model set up (GEMINI_API_KEY).'
     case 'analysis_failed':
@@ -69,7 +57,7 @@ export async function errorFrom(res: Response): Promise<RailsError> {
   const header = Number(res.headers.get('Retry-After'))
   const retryAfter =
     typeof body.retryAfter === 'number' ? body.retryAfter : Number.isFinite(header) && header > 0 ? header : undefined
-  return new RailsError(messageFor(res.status, code, retryAfter, body.fields), res.status, code, retryAfter)
+  return new RailsError(messageFor(res.status, code, body.fields), res.status, code, retryAfter)
 }
 
 /**
